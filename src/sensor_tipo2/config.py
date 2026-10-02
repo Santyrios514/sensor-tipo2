@@ -4,7 +4,7 @@ La malla se separa en dos niveles, porque todo lo que no depende de las aletas (
 volúmenes, masas del casco, CP de nariz y transición, región de lastre) se calcula una vez por
 cuerpo:
 
-- cuerpo: (L, D, L_n/D, forma de la transición, L_t/D, k = d_tc/D, L_tc);
+- cuerpo: (L, D, L_n/D, forma de la transición, L_t/D, diámetro d_tc y largo L_tc del tubo de cola);
 - aleta:  (μ, γ, σ, r_tip/R).
 
 Todo lo que sale de aquí está en SI (m, kg, rad); los mm, g y grados del YAML se convierten aquí.
@@ -28,7 +28,7 @@ from .perfiles import ESTACIONES, FORMAS, PARAMETRO_DEFECTO
 MM = 1e-3
 G = 1e-3
 
-VARS_CUERPO = ("L_total_mm", "D_mm", "L_n_rel_D", "cola_forma", "L_t_rel_D", "k", "L_tc_mm")
+VARS_CUERPO = ("L_total_mm", "D_mm", "L_n_rel_D", "cola_forma", "L_t_rel_D", "d_tc_mm", "L_tc_mm")
 VARS_ALETA = ("mu_cr", "gamma_ct", "sigma_flecha", "r_tip_rel_R")
 
 
@@ -55,14 +55,14 @@ class CuerpoSpec:
     forma: str
     parametro: float | None
     L_t_rel_D: float
-    k: float
+    d_tc_mm: float  # diámetro del tubo de cola (absoluto: lo fijan el anclaje de aletas y la pared)
     L_tc_mm: float
 
     @property
     def id(self) -> str:
         p = "" if self.parametro is None else _num(self.parametro)
         return (f"L{_num(self.L_mm)}_D{_num(self.D_mm)}_n{_num(self.L_n_rel_D)}_{self.forma}{p}"
-                f"_Lt{_num(self.L_t_rel_D)}_k{_num(self.k)}_tc{_num(self.L_tc_mm)}")
+                f"_Lt{_num(self.L_t_rel_D)}_dtc{_num(self.d_tc_mm)}_tc{_num(self.L_tc_mm)}")
 
     @property
     def L(self) -> float:
@@ -82,7 +82,12 @@ class CuerpoSpec:
 
     @property
     def d_tc(self) -> float:
-        return self.k * self.D
+        return self.d_tc_mm * MM
+
+    @property
+    def k(self) -> float:
+        """Razón de popa k = d_tc / D."""
+        return self.d_tc_mm / self.D_mm
 
     @property
     def L_tc(self) -> float:
@@ -197,6 +202,7 @@ class Restricciones:
     k_min: float
     d_tc_min: float
     D_ap_max: float | None
+    D_acostado_max_rel: float | None  # D_acostado ≤ este factor · D (1 = aletas dentro del D acostado)
     h_min: float
     c_min: float
     eps_CN: float
@@ -211,6 +217,12 @@ class Objetivo:
     pesos: tuple[float, float, float, float]
     f4_modo: str
     SM_centro: float
+    diametro: str = "acostado"  # criterio 2: acostado | aparente
+
+    @property
+    def col_diametro(self) -> str:
+        """Columna del ranking que usa el criterio 2."""
+        return "D_acostado_mm" if self.diametro == "acostado" else "D_ap_mm"
 
 
 @dataclass(frozen=True)
@@ -252,8 +264,8 @@ class ConfigOpt:
         m = malla or self.malla
         return [CuerpoSpec(float(L), float(D), float(n), f["forma"],
                            None if f.get("parametro") is None else float(f["parametro"]), float(lt),
-                           float(k), float(tc))
-                for L, D, n, f, lt, k, tc in itertools.product(*(m[v] for v in VARS_CUERPO))]
+                           float(dtc), float(tc))
+                for L, D, n, f, lt, dtc, tc in itertools.product(*(m[v] for v in VARS_CUERPO))]
 
     def aletas(self, malla: dict | None = None) -> list[AletaSpec]:
         m = malla or self.malla
@@ -270,13 +282,17 @@ class ConfigOpt:
 
     @property
     def cotas(self) -> dict[str, float]:
-        """Cotas de normalización del objetivo, tomadas de la malla configurada (no de resultados)."""
+        """Cotas de normalización del objetivo, tomadas de la malla configurada (no de resultados).
+        D_lo = min D; D_hi = el diámetro del criterio 2 con el mayor D y el mayor r_tip/R."""
+        from .aletas import envolvente
         D = [float(d) * MM for d in self.malla["D_mm"]]
-        r_rel = max(1.0, max(float(v) for v in self.malla["r_tip_rel_R"]))
-        k = [float(v) for v in self.malla["k"]]
-        D_hi = r_rel * max(D)
-        return {"D_ap_lo": min(D), "D_ap_hi": D_hi if D_hi > min(D) else min(D) + MM,
-                "k_lo": min(k), "k_hi": 1.0}
+        R, r_tip = max(D) / 2, max(float(v) for v in self.malla["r_tip_rel_R"]) * max(D) / 2
+        if self.objetivo.diametro == "acostado":
+            D_hi = max(envolvente(r_tip, R, self.aleta.n, self.rot_guardado))
+        else:
+            D_hi = 2 * max(R, r_tip)
+        k_lo = min(float(v) for v in self.malla["d_tc_mm"]) * MM / max(D)
+        return {"D_lo": min(D), "D_hi": D_hi if D_hi > min(D) else min(D) + MM, "k_lo": k_lo, "k_hi": 1.0}
 
     def resolver(self, v: str | Path) -> Path:
         p = Path(v)
@@ -460,12 +476,15 @@ def cargar(ruta: str | Path | dict, raiz: Path | None = None) -> ConfigOpt:
         L_max=float(r.get("L_max_mm", 400.0)) * MM, SM_min=float(r["SM_min_cal"]), SM_max=float(r["SM_max_cal"]),
         k_min=float(r.get("k_min", 0.0)), d_tc_min=float(r.get("d_tc_min_mm", 0.0)) * MM,
         D_ap_max=None if dmax is None else float(dmax) * MM,
+        D_acostado_max_rel=None if r.get("D_acostado_max_rel_D") is None else float(r["D_acostado_max_rel_D"]),
         h_min=float(r.get("h_min_mm", 5.0)) * MM, c_min=float(r.get("c_min_mm", 5.0)) * MM,
         eps_CN=float(r.get("eps_CN", 0.5)),
         angulo_cola_max=None if r.get("angulo_cola_max_deg") is None else math.radians(float(r["angulo_cola_max_deg"])),
         **_base_roma(r.get("cola_base_roma") or {}, errores))
     if not rest.SM_max > rest.SM_min:
         errores.append("restricciones: SM_max_cal debe ser > SM_min_cal")
+    if rest.D_acostado_max_rel is not None and not rest.D_acostado_max_rel >= 1.0:
+        errores.append("restricciones.D_acostado_max_rel_D debe ser ≥ 1 (el D acostado nunca es menor que D)")
 
     m = raw["malla"]
     for k in VARS_CUERPO + VARS_ALETA:
@@ -477,13 +496,10 @@ def cargar(ruta: str | Path | dict, raiz: Path | None = None) -> ConfigOpt:
         for v in m["L_total_mm"]:
             if not 0 < float(v) * MM <= rest.L_max + 1e-12:
                 errores.append(f"malla.L_total_mm = {v} debe estar en (0, L_max = {rest.L_max / MM:g}]")
-        for key in ("D_mm", "L_n_rel_D", "L_t_rel_D", "L_tc_mm", "r_tip_rel_R"):
+        for key in ("D_mm", "L_n_rel_D", "L_t_rel_D", "d_tc_mm", "L_tc_mm", "r_tip_rel_R"):
             for v in m[key]:
                 if not float(v) > 0:
                     errores.append(f"malla.{key} = {v} debe ser > 0")
-        for v in m["k"]:
-            if not 0 < float(v) < 1:
-                errores.append(f"malla.k = {v} fuera de (0, 1)")
         for key in ("mu_cr", "gamma_ct"):
             for v in m[key]:
                 if not 0 < float(v) <= 1:
@@ -499,6 +515,9 @@ def cargar(ruta: str | Path | dict, raiz: Path | None = None) -> ConfigOpt:
     modo = ob.get("f4_modo", "centro")
     if modo not in ("centro", "max"):
         errores.append(f"objetivo.f4_modo '{modo}' no válido (centro | max)")
+    diam = ob.get("diametro", "acostado")
+    if diam not in ("acostado", "aparente"):
+        errores.append(f"objetivo.diametro '{diam}' no válido (acostado | aparente)")
 
     nu = raw.get("numerico") or {}
     numerico = Numerico(dx=float(nu.get("dx_mm", 0.1)) * MM, n_ell=int(nu.get("n_barrido_ell", 600)),
@@ -515,6 +534,6 @@ def cargar(ruta: str | Path | dict, raiz: Path | None = None) -> ConfigOpt:
         vuelo=vuelo, remolque=remolque,
         rot_guardado=math.radians(float((raw.get("envolvente") or {}).get("rotacion_guardado_deg", 45.0))),
         nariz=nariz, recortada=bool(gf.get("cola_recortada", True)), aleta=aleta, malla=m, restricciones=rest,
-        objetivo=Objetivo(pesos=pesos, f4_modo=modo, SM_centro=float(ob.get("SM_centro_cal", 1.5))),
+        objetivo=Objetivo(pesos=pesos, f4_modo=modo, SM_centro=float(ob.get("SM_centro_cal", 1.5)), diametro=diam),
         numerico=numerico, ejecucion=raw.get("ejecucion") or {}, openrocket=raw.get("openrocket") or {},
         salida=raw.get("salida") or {}, raiz=raiz)

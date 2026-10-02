@@ -52,7 +52,7 @@ def _fila_base(c: CuerpoSpec, a: AletaSpec) -> dict:
     return {"cand_id": cand_id(c, a), "cuerpo_id": c.id, "factible": False, "motivos": "",
             "L_mm": c.L_mm, "D_mm": c.D_mm, "L_n_rel_D": c.L_n_rel_D, "L_n_mm": c.Ln / MM, "cola_forma": c.forma,
             "cola_parametro": c.parametro, "L_t_rel_D": c.L_t_rel_D, "L_t_mm": c.Lt / MM, "k": c.k,
-            "d_tc_mm": c.d_tc / MM, "L_tc_mm": c.L_tc_mm, "L_c_mm": (c.L - c.Ln - c.Lt - c.L_tc) / MM,
+            "d_tc_mm": c.d_tc_mm, "L_tc_mm": c.L_tc_mm, "L_c_mm": (c.L - c.Ln - c.Lt - c.L_tc) / MM,
             "mu_cr": a.mu_cr, "gamma_ct": a.gamma_ct, "sigma_flecha": a.sigma_flecha, "r_tip_rel_R": a.r_tip_rel_R,
             "verificado_or": False, "en_pareto": False}
 
@@ -142,7 +142,7 @@ def completar(cfg: ConfigOpt, df: pd.DataFrame) -> pd.DataFrame:
     df["factible"] = df["factible"].fillna(False).astype(bool)
     m_total = df["m_total_g"].astype(float) * G
     SM = df["SM_cal"].astype(float)
-    F = f_valores(cfg, m_total, df["D_ap_mm"].astype(float) * MM, df["k_efectivo"].astype(float), SM)
+    F = f_valores(cfg, m_total, df[cfg.objetivo.col_diametro].astype(float) * MM, df["k_efectivo"].astype(float), SM)
     valido = np.isfinite(m_total) & np.isfinite(SM)
     for j, col in enumerate(("f1", "f2", "f3", "f4")):
         df[col] = np.where(valido, F[:, j], np.nan)
@@ -181,7 +181,7 @@ def specs_de_fila(r) -> tuple[CuerpoSpec, AletaSpec]:
     par = get("cola_parametro")
     par = None if par is None or (isinstance(par, float) and math.isnan(par)) else float(par)
     c = CuerpoSpec(float(get("L_mm")), float(get("D_mm")), float(get("L_n_rel_D")), str(get("cola_forma")), par,
-                   float(get("L_t_rel_D")), float(get("k")), float(get("L_tc_mm")))
+                   float(get("L_t_rel_D")), float(get("d_tc_mm")), float(get("L_tc_mm")))
     a = AletaSpec(float(get("mu_cr")), float(get("gamma_ct")), float(get("sigma_flecha")), float(get("r_tip_rel_R")))
     return c, a
 
@@ -208,7 +208,7 @@ def _vecinos(v: float, lista, lo: float, hi: float) -> list[float]:
     return sorted(round(x, 10) for x in out if lo - 1e-12 <= x <= hi + 1e-12)
 
 
-VARS_REFINABLES = ("D_mm", "L_n_rel_D", "L_t_rel_D", "k", "L_tc_mm") + VARS_ALETA
+VARS_REFINABLES = ("D_mm", "L_n_rel_D", "L_t_rel_D", "d_tc_mm", "L_tc_mm") + VARS_ALETA
 
 
 def grupos_refinamiento(cfg: ConfigOpt, ranking: pd.DataFrame, top_K: int) -> Grupos:
@@ -218,13 +218,14 @@ def grupos_refinamiento(cfg: ConfigOpt, ranking: pd.DataFrame, top_K: int) -> Gr
     fac = ranking[ranking["factible"]].head(top_K)
     vistos = set(ranking["cand_id"])
     limites = {k: (min(float(v) for v in m[k]), max(float(v) for v in m[k])) for k in VARS_REFINABLES}
-    limites["k"] = (max(limites["k"][0], cfg.restricciones.k_min), limites["k"][1])
+    limites["d_tc_mm"] = (max(limites["d_tc_mm"][0], cfg.restricciones.d_tc_min / MM), limites["d_tc_mm"][1])
     out: OrderedDict = OrderedDict()
     for _, r in fac.iterrows():
         c0, _ = specs_de_fila(r)
         vals = {k: _vecinos(float(r[k]), m[k], *limites[k]) for k in VARS_REFINABLES}
-        for D, n, lt, k, tc in itertools.product(*(vals[v] for v in ("D_mm", "L_n_rel_D", "L_t_rel_D", "k", "L_tc_mm"))):
-            c = CuerpoSpec(c0.L_mm, D, n, c0.forma, c0.parametro, lt, k, tc)
+        for D, n, lt, dtc, tc in itertools.product(*(vals[v] for v in ("D_mm", "L_n_rel_D", "L_t_rel_D", "d_tc_mm",
+                                                                        "L_tc_mm"))):
+            c = CuerpoSpec(c0.L_mm, D, n, c0.forma, c0.parametro, lt, dtc, tc)
             lista = out.setdefault(c, [])
             ya = {a.id for a in lista}
             for combo in itertools.product(*(vals[v] for v in VARS_ALETA)):

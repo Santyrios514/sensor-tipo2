@@ -4,6 +4,9 @@
     python scripts/03_diagnostico_aletas.py [--config config/optimizacion.yaml]
         [--cand CAND_ID --ranking data_opt/ranking.csv] [--r-max 3.0] [--paso 0.05]
 
+La línea vertical en r_tip/R = √2 marca el límite de las aletas dentro del D acostado del cuerpo
+(4 aletas guardadas a 45°: D_acostado = max(D, √2 r_tip)).
+
 Por defecto usa el cuerpo y la forma de aleta del `.ork` tipo 2 (D = 70, L_n = L_t = 65,
 d_tc = 30, L_tc = 50, aleta 50/35/15 mm). Con --cand usa el cuerpo y la aleta de ese candidato.
 Para cada r_tip/R reporta el C_Nα por componente, el CP, el SM máximo alcanzable con el tapón
@@ -41,7 +44,7 @@ from sensor_tipo2.geometria import construir_cuerpo  # noqa: E402
 from sensor_tipo2.lastre import llenar  # noqa: E402
 
 MM = 1e-3
-BASE_ORK = (CuerpoSpec(400, 70, 65 / 70, "elipsoide", None, 65 / 70, 30 / 70, 50), AletaSpec(1.0, 0.7, 1.0, 1.0))
+BASE_ORK = (CuerpoSpec(400, 70, 65 / 70, "elipsoide", None, 65 / 70, 30, 50), AletaSpec(1.0, 0.7, 1.0, 1.0))
 
 
 def _args(argv=None):
@@ -89,7 +92,9 @@ def figura(df: pd.DataFrame, SM_min: float, titulo: str, ruta: Path):
     a1.plot(df["r_tip_rel_R"], df["CNa_cola_aletas_esbelto"], color=NARANJA, ls="--",
             label="transición + aletas (cuerpos esbeltos)")
     a1.axhline(0, color=TINTA2, lw=0.8)
-    a1.axvline(1.0, color=TINTA2, lw=0.8, ls=":")
+    for ax in (a1, a2):
+        ax.axvline(1.0, color=TINTA2, lw=0.8, ls=":")
+        ax.axvline(math.sqrt(2), color=AQUA, lw=1.0, ls="--")
     a1.set_xlabel("r_tip / R")
     a1.set_ylabel("C_Nα [1/rad] (ref. π D²/4)")
     a1.set_title("Sustentación de la cola", loc="left", fontsize=10)
@@ -100,10 +105,9 @@ def figura(df: pd.DataFrame, SM_min: float, titulo: str, ruta: Path):
     a2.scatter(df.loc[ok, "r_tip_rel_R"], df.loc[ok, "SM_cal"], s=14, color=AQUA, zorder=3,
                label="llenado factible (SM final)")
     a2.axhline(SM_min, color=TINTA2, lw=1.0, ls=":")
-    a2.axvline(1.0, color=TINTA2, lw=0.8, ls=":")
     a2.set_xlabel("r_tip / R")
     a2.set_ylabel("SM [cal]")
-    a2.set_title("Margen estático", loc="left", fontsize=10)
+    a2.set_title("Margen estático (verde discontinuo: D acostado = D)", loc="left", fontsize=10)
     a2.legend(frameon=False, fontsize=8, loc="lower right")
     for ax in (a1, a2):
         ax.grid(color=REJILLA, lw=0.6)
@@ -127,7 +131,7 @@ def main(argv=None) -> int:
     else:
         c, al = BASE_ORK
         nombre = "geometría del .ork tipo 2"
-    r_rel = np.round(np.arange(1.0, a.r_max + 1e-9, a.paso), 6)
+    r_rel = np.union1d(np.round(np.arange(1.0, a.r_max + 1e-9, a.paso), 6), [math.sqrt(2)])
     df = barrer(cfg, c, al, r_rel)
     SM_min = cfg.restricciones.SM_min
     print(f"{nombre}: {c.id}, aleta {al.id}")
@@ -138,6 +142,10 @@ def main(argv=None) -> int:
     for etq, d in (("SM ≥ SM_min con el tapón delantero", est), ("llenado factible (todos los criterios)", fac)):
         print(f"r_tip/R mínimo para {etq}: " + (f"{d['r_tip_rel_R'].min():.2f} (D_ap = {d['D_ap_mm'].min():.1f} mm)"
                                               if len(d) else f"ninguno hasta {a.r_max:g}"))
+    lim = df[df["r_tip_rel_R"] <= math.sqrt(2) + 1e-9].iloc[-1]
+    print(f"Con D acostado = D (r_tip/R ≤ √2): SM máx. con plomo {lim['SM_max_alc_cal']:.2f} · "
+          + (f"llenado factible con {lim['m_total_g']:.0f} g, SM {lim['SM_cal']:.2f}" if lim["factible"]
+             else f"infactible ({lim['motivos']})"))
     base = df.iloc[0]
     print(f"Con r_tip = R: C_Nα transición + aletas = {base['CNa_cola_mas_aletas']:.3f} (Barrowman), "
           f"{base['CNa_cola_aletas_esbelto']:.3f} (cuerpos esbeltos); x_CP = {base['x_CP_mm']:.1f} mm.")

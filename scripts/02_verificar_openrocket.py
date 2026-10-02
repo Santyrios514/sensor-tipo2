@@ -87,13 +87,13 @@ def main(argv=None) -> int:
     g = df[df["ganador"]].iloc[0]
     print(f"\nGanador (verificado con OpenRocket): {g['cand_id']}\n"
           f"  m_total {g['m_total_or_g']:.0f} g · D {g['D_mm']:.1f} mm · d_tc {g['d_tc_mm']:.1f} mm · "
-          f"D_ap {g['D_ap_mm']:.1f} mm · SM_OR {g['SM_or_cal']:.2f} (sustituto {g['SM_cal']:.2f}) · "
+          f"D acostado {g['D_acostado_mm']:.1f} mm · D aparente {g['D_ap_mm']:.1f} mm · SM_OR {g['SM_or_cal']:.2f} (sustituto {g['SM_cal']:.2f}) · "
           f"x_CP OR {g['x_CP_or_mm']:.1f} mm · C_D OR {g['CD_or']:.3f} · dif. masa {g['dif_masa_or_pct']:+.3f} %")
     print(f"  .ork del ganador reabierto: |ΔCP| = {reapertura:.3f} mm (tolerancia {TOL_REAPERTURA_MM} mm)")
     if not a.sin_figuras:
         dir_f.mkdir(parents=True, exist_ok=True)
         exportar.fig_calibracion(ver, cal, dir_f / "calibracion.png")
-        exportar.fig_pareto(df.sort_values(["ganador"], ascending=False), dir_f / "pareto.png")
+        exportar.fig_pareto(df.sort_values(["ganador"], ascending=False), dir_f / "pareto.png", cfg.objetivo.col_diametro)
         exportar.fig_factibilidad(df, dir_f / "factibilidad.png")
         v = ver.set_index("cand_id").loc[res.ganador]
         exportar.fig_ganador(cfg, g, dir_f, cal, x_CP=g["x_CP_or_mm"] * MM, CNa=float(v["CNa_or"]))

@@ -43,10 +43,10 @@ def test_base_ork_regresion(puente, cfg_ork, base_ork):
     assert m_mod == pytest.approx(puente.masas().m_total, rel=0.005)
 
 
-@pytest.mark.parametrize("cuerpo, aleta", [
-    ((400, 90, 0.75, "conica", None, 1.25, 0.3, 80), (1.0, 0.7, 1.0, 2.4)),
-    ((380, 75, 0.75, "elipsoide", None, 1.0, 0.45, 40), (1.0, 0.4, 0.0, 2.2)),
-    ((400, 80, 1.0, "ogiva", 1.0, 0.8, 0.35, 60), (0.7, 0.4, 0.5, 1.8)),
+@pytest.mark.parametrize("cuerpo, aleta", [  # ganadores de la frontera masa–diámetro (D acostado = D)
+    ((400, 90, 0.3, "conica", None, 1.125, 20, 180), (0.4, 1.0, 0.5, 1.41421356)),
+    ((400, 70, 0.3, "conica", None, 1.0, 20, 210), (0.55, 0.85, 0.5, 1.41421356)),
+    ((400, 55, 0.3, "ogiva", 1.0, 1.75, 20, 240), (0.7, 1.0, 0.5, 1.41421356)),
 ])
 def test_candidatos_contra_openrocket(puente, cfg, cuerpo, aleta):
     from sensor_tipo2.barrido import evaluar_cuerpo

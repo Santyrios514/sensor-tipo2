@@ -6,7 +6,7 @@ transición, tubo de cola, paredes con ρ_eq y aletas freeform sobre el tubo con
 y agrega el lastre, la electrónica y las masas puntuales como *Mass components*.
 
 Flujo (`verificar_y_calibrar`, el de dbf-sensor):
-1. se verifican los N_verif mejores y una muestra de N_cal estratificada por (D, k);
+1. se verifican los N_verif mejores y una muestra de N_cal estratificada por (D, d_tc);
 2. se ajusta x_OR ≈ α + β x_sust; si el residuo máximo supera tol_cp_mm se recalcula toda la
    malla con el CP calibrado y se verifican los nuevos mejores (hasta max_iter_calibracion);
 3. cada verificado se vuelve a llenar con el CP y el C_Nα de OpenRocket (SM_or, J_or); gana el
@@ -250,7 +250,8 @@ def verificar_candidato(cfg: ConfigOpt, pr: PuenteTipo2, fila: pd.Series, cal: C
                 "motivos_or": ";".join(Ll.motivos), "tol_amarre_or_mm": f["tol_amarre_mm"]})
     for comp, (m, _) in mas.por_componente.items():
         out[f"m_or_{comp}_g"] = m / G
-    F = f_valores(cfg, [f["m_total_g"] * G], [fila["D_ap_mm"] * MM], [fila["k_efectivo"]], [out["SM_or_cal"]])
+    F = f_valores(cfg, [f["m_total_g"] * G], [fila[cfg.objetivo.col_diametro] * MM], [fila["k_efectivo"]],
+                  [out["SM_or_cal"]])
     out["J_or"] = float(J(cfg, F)[0])
     if guardar is not None:
         pr.guardar(guardar)
@@ -261,10 +262,10 @@ def verificar_candidato(cfg: ConfigOpt, pr: PuenteTipo2, fila: pd.Series, cal: C
 
 
 def muestra_estratificada(df: pd.DataFrame, n: int, excluir: set[str], semilla: int) -> list[str]:
-    """n candidatos factibles repartidos por estratos (D, k), en ronda, con semilla fija."""
+    """n candidatos factibles repartidos por estratos (D, d_tc), en ronda, con semilla fija."""
     rng = np.random.default_rng(semilla)
     fac = df[df["factible"].astype(bool) & ~df["cand_id"].isin(excluir)]
-    estratos = [list(g["cand_id"]) for _, g in fac.groupby(["D_mm", "k"], sort=True)]
+    estratos = [list(g["cand_id"]) for _, g in fac.groupby(["D_mm", "d_tc_mm"], sort=True)]
     for e in estratos:
         rng.shuffle(e)
     out: list[str] = []

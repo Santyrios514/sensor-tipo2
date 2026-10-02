@@ -49,7 +49,7 @@ def test_erosion_compone():
 
 
 def test_cavidad_y_masa_del_cilindro(cfg):
-    spec = CuerpoSpec(400, 80, 1.0, "conica", None, 0.8, 0.4, 50)
+    spec = CuerpoSpec(400, 80, 1.0, "conica", None, 0.8, 32, 50)
     cu = construir_cuerpo(cfg, spec)
     p, cav = cu.perfil, cu.cav
     T = sum(c.t for c in cfg.pared["cuerpo"])
@@ -63,7 +63,7 @@ def test_cavidad_y_masa_del_cilindro(cfg):
 
 
 def test_barrowman_nariz_elipsoide_y_transicion_conica(cfg):
-    spec = CuerpoSpec(400, 80, 1.0, "conica", None, 0.8, 0.4, 50)
+    spec = CuerpoSpec(400, 80, 1.0, "conica", None, 0.8, 32, 50)
     cu = construir_cuerpo(cfg, spec)
     p = cu.perfil
     nariz, cola = cu.partes
@@ -85,6 +85,6 @@ def test_base_roma_y_k_efectivo():
 
 
 def test_motivos_de_cuerpo(cfg):
-    assert "d_tubo_cola_bajo_minimo" in construir_cuerpo(cfg, CuerpoSpec(400, 60, 1, "conica", None, 1, 0.3, 50)).motivos
-    assert "cola_base_roma" in construir_cuerpo(cfg, CuerpoSpec(400, 80, 1, "conica", None, 0.4, 0.4, 50)).motivos
-    assert "L_c_no_positivo" in construir_cuerpo(cfg, CuerpoSpec(400, 90, 1.5, "conica", None, 1.25, 0.4, 160)).motivos
+    assert "d_tubo_cola_bajo_minimo" in construir_cuerpo(cfg, CuerpoSpec(400, 60, 1, "conica", None, 1, 18, 50)).motivos
+    assert "cola_base_roma" in construir_cuerpo(cfg, CuerpoSpec(400, 80, 1, "conica", None, 0.4, 32, 50)).motivos
+    assert "L_c_no_positivo" in construir_cuerpo(cfg, CuerpoSpec(400, 90, 1.5, "conica", None, 1.25, 36, 160)).motivos

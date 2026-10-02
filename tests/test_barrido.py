@@ -35,6 +35,8 @@ def test_orden_y_factibles(chica, ranking):
     assert fac["SM_cal"].between(r.SM_min - 1e-6, r.SM_max).all()
     assert (fac["m_total_g"] <= (chica.m_max + chica.numerico.tol_masa_max) * 1e3).all()
     assert not ranking.loc[ranking["r_tip_rel_R"] == 1.0, "factible"].any()
+    assert not ranking.loc[ranking["r_tip_rel_R"] == 1.6, "factible"].any()  # se sale del D acostado
+    assert (fac["D_acostado_mm"] <= fac["D_mm"] + 1e-6).all()
     assert ranking["cand_id"].is_unique
 
 
@@ -55,10 +57,17 @@ def test_config_invalida(raw):
     raw["malla"]["L_total_mm"] = [420]
     with pytest.raises(ConfigError, match="L_max"):
         cargar(raw)
-    raw2 = malla_chica(raw, k=[1.2])
+    raw2 = malla_chica(raw, d_tc_mm=[-5])
     raw2["malla"]["L_total_mm"] = [400]
-    with pytest.raises(ConfigError, match="malla.k"):
+    with pytest.raises(ConfigError, match="malla.d_tc_mm"):
         cargar(raw2)
+
+
+def test_D_acostado_invalido(raw):
+    """El D acostado nunca es menor que D: un tope < 1 es un error de configuración."""
+    raw["restricciones"]["D_acostado_max_rel_D"] = 0.9
+    with pytest.raises(ConfigError, match="D_acostado_max_rel_D"):
+        cargar(raw)
 
 
 def test_tamano_de_la_malla(cfg):

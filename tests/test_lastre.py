@@ -9,10 +9,12 @@ from sensor_tipo2.geometria import construir_cuerpo
 from sensor_tipo2.lastre import llenar
 from sensor_tipo2.sustituto import cp_sustituto
 
-CUERPO = CuerpoSpec(400, 80, 1.0, "elipsoide", None, 0.8, 0.4, 60)
+from .conftest import FACTIBLE
+
+CUERPO, ALETA = CuerpoSpec(*FACTIBLE[0]), AletaSpec(*FACTIBLE[1])
 
 
-def _llenar(cfg, a=AletaSpec(1.0, 0.7, 1.0, 2.0), c=CUERPO):
+def _llenar(cfg, a=ALETA, c=CUERPO):
     cu = construir_cuerpo(cfg, c)
     g, mot = construir(cfg, cu.perfil, a)
     assert not mot

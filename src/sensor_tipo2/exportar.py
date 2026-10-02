@@ -53,6 +53,7 @@ def leer_ranking(ruta: Path) -> pd.DataFrame:
 def exportar_ranking(cfg: ConfigOpt, df: pd.DataFrame, dir_datos: Path):
     escribir_csv(df, dir_datos / "ranking.csv", RANKING)
     escribir_csv(df[df["en_pareto"].astype(bool)], dir_datos / "pareto.csv", RANKING)
+    escribir_csv(frontera(df), dir_datos / "frontera_masa_D.csv")
     escribir_json(tolerancias(cfg), dir_datos / "tolerancias_implicitas.json")
 
 
@@ -216,18 +217,20 @@ def fig_ganador(cfg: ConfigOpt, fila: pd.Series, dir_fig: Path, cal: Calibracion
     return [r] if r else []
 
 
-def fig_pareto(df: pd.DataFrame, ruta: Path):
+def fig_pareto(df: pd.DataFrame, ruta: Path, col: str = "D_acostado_mm"):
+    """Frente de Pareto en (diámetro del criterio 2, k efectivo, SM)."""
     p = df[df["en_pareto"].astype(bool)]
     if p.empty:
         return None
+    etq = "D acostado [mm]" if col == "D_acostado_mm" else "D aparente [mm]"
     fig, axs = plt.subplots(1, 3, figsize=(13, 4.2), constrained_layout=True)
-    sc = axs[0].scatter(p["D_ap_mm"], p["k_efectivo"], c=p["SM_cal"], cmap="Blues", s=36, edgecolor=TINTA2, linewidth=0.5)
-    axs[0].set_xlabel("D aparente [mm]")
+    sc = axs[0].scatter(p[col], p["k_efectivo"], c=p["SM_cal"], cmap="Blues", s=36, edgecolor=TINTA2, linewidth=0.5)
+    axs[0].set_xlabel(etq)
     axs[0].set_ylabel("k efectivo")
     axs[0].set_title("Frente de Pareto (color = SM)", loc="left", fontsize=10)
     fig.colorbar(sc, ax=axs[0], label="SM [cal]")
-    axs[1].scatter(p["D_ap_mm"], p["SM_cal"], s=30, color=AZUL, edgecolor="white", linewidth=1)
-    axs[1].set_xlabel("D aparente [mm]")
+    axs[1].scatter(p[col], p["SM_cal"], s=30, color=AZUL, edgecolor="white", linewidth=1)
+    axs[1].set_xlabel(etq)
     axs[1].set_ylabel("SM [cal]")
     axs[2].scatter(p["k_efectivo"], p["SM_cal"], s=30, color=NARANJA, edgecolor="white", linewidth=1)
     axs[2].set_xlabel("k efectivo")
@@ -236,7 +239,7 @@ def fig_pareto(df: pd.DataFrame, ruta: Path):
         _estilo(ax)
     g = df[df["factible"].astype(bool)].head(1)
     if not g.empty:
-        axs[0].plot(g["D_ap_mm"], g["k_efectivo"], marker="*", ms=16, color=AMARILLO, mec=TINTA, label="ganador")
+        axs[0].plot(g[col], g["k_efectivo"], marker="*", ms=16, color=AMARILLO, mec=TINTA, label="ganador")
         axs[0].legend(frameon=False, loc="upper right")
     fig.savefig(ruta, dpi=140)
     plt.close(fig)
@@ -261,10 +264,10 @@ def fig_factibilidad(df: pd.DataFrame, ruta: Path):
     return ruta
 
 
-VARIABLES = [("D_mm", "D [mm]"), ("L_n_rel_D", "L_n / D"), ("L_t_rel_D", "L_t / D"), ("k", "k = d_tc / D"),
+VARIABLES = [("D_mm", "D [mm]"), ("L_n_rel_D", "L_n / D"), ("L_t_rel_D", "L_t / D"), ("d_tc_mm", "d_tc [mm]"),
              ("L_tc_mm", "L_tc [mm]"), ("mu_cr", "μ"), ("gamma_ct", "γ"), ("sigma_flecha", "σ"),
              ("r_tip_rel_R", "r_tip / R")]
-_CUERPO = ("D_mm", "L_n_rel_D", "L_t_rel_D", "k", "L_tc_mm")
+_CUERPO = ("D_mm", "L_n_rel_D", "L_t_rel_D", "d_tc_mm", "L_tc_mm")
 
 
 def sensibilidad(cfg: ConfigOpt, fila: pd.Series, cal: Calibracion = IDENTIDAD) -> pd.DataFrame:
@@ -331,9 +334,43 @@ def fig_calibracion(ver: pd.DataFrame, cal: Calibracion, ruta: Path):
     return ruta
 
 
+def frontera(df: pd.DataFrame) -> pd.DataFrame:
+    """Por cada D, el mejor candidato factible (menor J, que es la mayor masa salvo empates): la masa
+    máxima que admite cada diámetro. Sirve para elegir qué tan esbelto hacer el sensor."""
+    fac = df[df["factible"].astype(bool)]
+    if fac.empty:
+        return pd.DataFrame()
+    cols = ["D_mm", "D_acostado_mm", "D_ap_mm", "m_total_g", "m_lastre_g", "SM_cal", "tol_amarre_mm",
+            "restriccion_activa", "r_tip_rel_R", "L_n_mm", "L_t_mm", "d_tc_mm", "L_tc_mm", "cola_forma",
+            "theta_eq_deg", "cand_id"]
+    idx = fac.sort_values(["D_mm", "m_total_g", "J"], ascending=[True, False, True]).groupby("D_mm").head(1).index
+    return fac.loc[idx, cols].reset_index(drop=True)
+
+
+def fig_frontera(fr: pd.DataFrame, m_max_g: float, ruta: Path):
+    if fr.empty:
+        return None
+    fig, ax = plt.subplots(figsize=(6.4, 4), constrained_layout=True)
+    ax.plot(fr["D_mm"], fr["m_total_g"] / 1000, color=AZUL, marker="o", lw=1.8)
+    for _, r in fr.iterrows():
+        ax.annotate(r["restriccion_activa"], (r["D_mm"], r["m_total_g"] / 1000), textcoords="offset points",
+                    xytext=(0, 7), ha="center", fontsize=7, color=TINTA2)
+    ax.axhline(m_max_g / 1000, color=NARANJA, lw=1.0, ls="--", label=f"m_max = {m_max_g / 1000:g} kg")
+    ax.set_xlabel("D del cuerpo [mm]")
+    ax.set_ylabel("masa total máxima factible [kg]")
+    ax.set_title("Frontera masa–diámetro (etiqueta = restricción activa)", loc="left", fontsize=10)
+    ax.legend(frameon=False, loc="upper left")
+    _estilo(ax)
+    fig.savefig(ruta, dpi=140)
+    plt.close(fig)
+    return ruta
+
+
 def figuras_barrido(cfg: ConfigOpt, df: pd.DataFrame, dir_fig: Path, cal: Calibracion = IDENTIDAD) -> list[Path]:
     dir_fig.mkdir(parents=True, exist_ok=True)
-    rutas = [fig_pareto(df, dir_fig / "pareto.png"), fig_factibilidad(df, dir_fig / "factibilidad.png")]
+    rutas = [fig_pareto(df, dir_fig / "pareto.png", cfg.objetivo.col_diametro),
+             fig_factibilidad(df, dir_fig / "factibilidad.png"),
+             fig_frontera(frontera(df), cfg.m_max * 1e3, dir_fig / "frontera_masa_D.png")]
     fac = df[df["factible"].astype(bool)]
     if not fac.empty:
         g = fac.iloc[0]

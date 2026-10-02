@@ -29,10 +29,10 @@ def raw_ork() -> dict:
 def malla_chica(raw: dict, **cambios) -> dict:
     """Malla reducida para tests rápidos."""
     raw["malla"] = {
-        "L_total_mm": [400], "D_mm": [75, 85], "L_n_rel_D": [1.0],
+        "L_total_mm": [400], "D_mm": [70, 90], "L_n_rel_D": [0.4],
         "cola_forma": [{"forma": "elipsoide", "parametro": None}, {"forma": "conica", "parametro": None}],
-        "L_t_rel_D": [0.8], "k": [0.35, 0.45], "L_tc_mm": [60],
-        "mu_cr": [1.0], "gamma_ct": [0.4, 0.7], "sigma_flecha": [1.0], "r_tip_rel_R": [1.0, 1.8, 2.2],
+        "L_t_rel_D": [1.25, 1.5], "d_tc_mm": [20, 25], "L_tc_mm": [120, 150],
+        "mu_cr": [0.55], "gamma_ct": [0.85], "sigma_flecha": [1.0], "r_tip_rel_R": [1.0, 1.35, 1.41421356, 1.6],
     }
     raw["malla"].update(cambios)
     raw["ejecucion"]["refinamiento"] = {"activar": True, "top_K": 2}
@@ -56,8 +56,12 @@ def cfg_ork():
     return cargar(raw_ork())
 
 
+# candidato factible con aletas dentro del D acostado (r_tip/R = √2) y la electrónica de 20 mm
+FACTIBLE = ((400, 90, 0.4, "conica", None, 1.5, 20, 150), (0.55, 0.85, 1.0, 1.41421356))
+
+
 @pytest.fixture(scope="session")
 def base_ork():
     """Cuerpo y aleta del .ork tipo 2."""
     from sensor_tipo2.config import AletaSpec, CuerpoSpec
-    return CuerpoSpec(400, 70, 65 / 70, "elipsoide", None, 65 / 70, 30 / 70, 50), AletaSpec(1.0, 0.7, 1.0, 1.0)
+    return CuerpoSpec(400, 70, 65 / 70, "elipsoide", None, 65 / 70, 30, 50), AletaSpec(1.0, 0.7, 1.0, 1.0)

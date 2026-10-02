@@ -284,6 +284,8 @@ def construir_cuerpo(cfg: ConfigOpt, spec: CuerpoSpec) -> Cuerpo:
         cu.motivos.append("L_mayor_maximo")
     if spec.k < rest.k_min - 1e-12:
         cu.motivos.append("k_bajo_minimo")
+    if not spec.d_tc < spec.D:
+        cu.motivos.append("d_tubo_cola_no_menor_que_D")
     if spec.d_tc < rest.d_tc_min - 1e-12:
         cu.motivos.append("d_tubo_cola_bajo_minimo")
     if rest.angulo_cola_max is not None and cu.theta_eq > rest.angulo_cola_max + 1e-12:

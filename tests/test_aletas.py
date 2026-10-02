@@ -46,6 +46,16 @@ def test_validaciones(cfg, base_ork):
     assert "h_menor_minimo" in mot
 
 
+def test_tope_del_D_acostado(cfg, base_ork):
+    """4 aletas guardadas a 45°: D_acostado = max(D, √2 r_tip); r_tip/R = √2 es el límite."""
+    c, _ = base_ork
+    p = construir_cuerpo(cfg, c).perfil
+    g, mot = construir(cfg, p, AletaSpec(1.0, 0.7, 1.0, 1.41421356))
+    assert not mot and max(envolvente(g.r_tip, p.R, 4, math.radians(45))) == pytest.approx(p.D)
+    _, mot = construir(cfg, p, AletaSpec(1.0, 0.7, 1.0, 1.45))
+    assert mot == ["D_acostado_mayor_maximo"]
+
+
 def test_envolvente_y_flutter(cfg, base_ork):
     assert envolvente(0.05, 0.035, 4, math.radians(45)) == pytest.approx((2 * 0.05 * math.cos(math.pi / 4),) * 2)
     assert envolvente(0.03, 0.035, 4, 0.0) == pytest.approx((0.07, 0.07))

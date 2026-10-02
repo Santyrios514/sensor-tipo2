@@ -89,6 +89,9 @@ def construir(cfg: ConfigOpt, perfil: Perfil, a: AletaSpec) -> tuple[GeomAleta, 
         motivos.append("c_t_menor_minimo")
     if rest.D_ap_max is not None and 2 * max(perfil.R, g.r_tip) > rest.D_ap_max + 1e-12:
         motivos.append("D_ap_mayor_maximo")
+    if rest.D_acostado_max_rel is not None and \
+            max(envolvente(g.r_tip, perfil.R, cfg.aleta.n, cfg.rot_guardado)) > rest.D_acostado_max_rel * perfil.D + 1e-9:
+        motivos.append("D_acostado_mayor_maximo")
     return g, motivos
 
 
