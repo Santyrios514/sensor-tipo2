@@ -1,0 +1,137 @@
+# Optimización del sensor remolcado TIPO 2 (sensor_tipo2). Única fuente de parámetros.
+# Unidades de E/S: longitud en mm, masa en g, densidad en kg/m^3, ángulos en grados.
+#
+# Topología (modelos/analisis_tipo2.ork): nariz + cuerpo cilíndrico + transición (boattail) +
+# TUBO DE COLA cilíndrico con cuatro aletas freeform sobre el tubo. Los parámetros que no son de
+# geometría (pared, electrónica, herraje, lastre, remolque, vuelo y criterios) son los de
+# dbf-sensor (config/config.yaml y config/optimizacion_10kg.yaml) y funcionan igual.
+
+materiales:                     # densidad en kg/m^3 (los de dbf-sensor)
+  MAT_PARED_EQ: 1200            # dbf-sensor lo bajó a 1200 (el .ork tipo 2 aún dice 1342)
+  PLA: 1240
+  fibra_vidrio_epoxy: 1850
+  onyx: 1200                    # ficha técnica Markforged — VERIFICAR con el perfil de impresión
+  plomo: 11340
+
+costos_usd_kg: {plomo: 4}       # aproximado, solo material
+
+masa:
+  m_max_g: 10000                # masa TOTAL del sensor (corrida de 10 kg de dbf-sensor; el presupuesto
+                                # con MTOW 16 kg da 6200 g, ver dbf-sensor/config/config.yaml)
+  factor_llenado: 1.0           # el lastre es plomo macizo
+
+pared:                          # capas de AFUERA hacia ADENTRO (las de dbf-sensor: ρ_eq = 1342 kg/m³)
+  por_defecto:                  # el .ork tipo 2 usa una capa equivalente de 2.0 mm
+    - {material: fibra_vidrio_epoxy, espesor_mm: 0.3, fraccion_solida: 1.0}
+    - {material: PLA,                espesor_mm: 1.5, fraccion_solida: 1.0}
+  nariz: null                   # null = por_defecto; o una lista propia
+  cuerpo: null
+  cola: null                    # transición
+  tubo_cola: null
+
+electronica:                    # detrás del tapón de lastre delantero, como en dbf-sensor
+  longitud_mm: 100
+  masa_g: 150
+  holgura_mm: 2.0
+  x_cg_relativo_mm: null        # CG propio medido desde su inicio; null = centro
+
+masas_puntuales:
+  - {nombre: herraje_remolque, masa_g: 15, x_mm: 40}
+
+lastre:
+  r_min_util_mm: 3.0            # el tapón delantero empieza donde r_i ≥ r_min_util (x_b0)
+  fraccion_max_L: 0.6           # el tapón delantero termina antes de 0.6 L (null = sin límite)
+  margen_cola_mm: 5.0           # el tapón delantero y la electrónica terminan 5 mm antes de la transición
+  lastre_trasero: true          # tapón trasero detrás de la electrónica (transición y tubo de cola)
+  margen_popa_mm: 0.0
+
+estabilidad:
+  umbral_margen_bajo_cal: 0.3   # bandera informativa margen_SM_bajo
+
+condiciones_vuelo:
+  V_m_s: 30.0
+  altitud_m: 1495               # Medellín, ISA
+  mach: auto                    # auto = V / a(h)
+
+remolque:                       # amarre en el CG (trim estático 0), como en dbf-sensor
+  alpha_trim_max_deg: 5.0
+  alpha_lineal_max_deg: 15.0
+  tol_amarre_min_mm: 1.5        # error admisible mínimo del amarre respecto al CG (null = sin mínimo)
+
+envolvente:
+  rotacion_guardado_deg: 45     # guardado acostado con las aletas en diagonal
+
+geometria_fija:
+  nariz: {forma: elipsoide, parametro: null}
+  cola_recortada: true          # transición 'clipped' de OpenRocket (solo elipsoide, potencia, haack)
+  aletas:
+    n: 4
+    rotacion_deg: 45
+    material: onyx
+    espesor_mm: 3.0             # el del .ork tipo 2 (FIJO: nada en el objetivo lo premia)
+    fraccion_solida: 1.0
+    E_GPa: 2.4                  # módulo a tracción del Onyx (flutter)
+    nu: 0.38                    # supuesto
+    factor_flutter: 3.0         # bandera flutter_margen_bajo si V_flutter < 3 V
+
+malla:
+  # cuerpo: L, D, nariz, forma de la transición, L_t, k = d_tc / D, largo del tubo de cola
+  L_total_mm: [400]             # ≤ restricciones.L_max_mm; se pueden barrer largos menores
+  D_mm: [60, 65, 70, 75, 80, 85, 90]
+  L_n_rel_D: [0.75, 1.0]
+  cola_forma:
+    - {forma: elipsoide, parametro: null}   # la del .ork tipo 2 (recortada)
+    - {forma: ogiva,     parametro: 1.0}
+    - {forma: conica,    parametro: null}
+  L_t_rel_D: [0.6, 0.8, 1.0, 1.25]
+  k: [0.3, 0.35, 0.4, 0.45, 0.5]
+  L_tc_mm: [30, 40, 50, 60, 80]
+  # aletas sobre el tubo de cola, alineadas con su extremo (offset bottom = 0)
+  mu_cr: [0.7, 1.0]             # c_r = μ L_tc
+  gamma_ct: [0.4, 0.7]          # c_t = γ c_r
+  sigma_flecha: [0.0, 0.5, 1.0] # x_s = σ (c_r − c_t): 1 = borde de salida recto (el .ork)
+  r_tip_rel_R: [1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4]   # 1.0 = aletas dentro del diámetro del cuerpo
+
+restricciones:
+  L_max_mm: 400                 # largo total máximo del sensor
+  SM_min_cal: 1.0
+  SM_max_cal: 2.0
+  k_min: 0.2
+  d_tc_min_mm: 20.0             # diámetro mínimo del tubo de cola (anclaje de aletas y pared)
+  D_ap_max_mm: null             # tope opcional del diámetro aparente 2 max(R, r_tip)
+  h_min_mm: 5.0
+  c_min_mm: 5.0
+  eps_CN: 0.5                   # guarda: Σ C_Nα < eps_CN → candidato descartado
+  angulo_cola_max_deg: null
+  cola_base_roma:               # arrastre de la transición como en OpenRocket (Hoerner)
+    angulo_inicio_deg: 9.46     # L_t/ΔD = 3
+    angulo_base_roma_deg: 26.57 # L_t/ΔD = 1
+    infactible: true
+
+objetivo:
+  pesos: [1.0e6, 1.0e4, 1.0e2, 1.0]   # masa ≫ diámetro aparente ≫ taper ≫ SM
+  f4_modo: centro               # centro | max
+  SM_centro_cal: 1.5
+
+ejecucion:
+  max_evaluaciones: 2000000
+  procesos: auto
+  refinamiento: {activar: true, top_K: 10}
+  verificacion_or: {N_verif: 20, N_cal: 30, tol_cp_mm: 2.0, max_iter_calibracion: 3}
+  semilla: 12345
+
+numerico:
+  dx_mm: 0.1
+  n_barrido_ell: 600
+  tol_raiz_mm: 0.01
+  n_franjas_aleta: 48
+  tol_masa_max_g: 0.5
+
+openrocket:
+  ork_base: modelos/analisis_tipo2.ork
+  jar: null                     # null → ORLAB_JAR o caché de `python -m orlab fetch 24.12`
+
+salida:
+  dir: data_opt
+  dir_figuras: figs_opt
+  exportar_ork_top: 5

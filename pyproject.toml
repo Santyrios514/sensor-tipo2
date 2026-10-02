@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sensor-tipo2"
+version = "0.1.0"
+description = "Optimización de la geometría y el lastre del sensor remolcado tipo 2 (DBF 2026-27, UPB)"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "scipy>=1.12",
+    "pandas",
+    "pyyaml",
+    "matplotlib",
+]
+
+[project.optional-dependencies]
+openrocket = ["orlab", "jpype1"]
+dev = ["pytest"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

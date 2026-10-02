@@ -1,0 +1,7 @@
+# Variante: tope de masa del presupuesto con MTOW 16 kg (dbf-sensor/config/config.yaml, lastre).
+hereda: optimizacion.yaml
+masa:
+  m_max_g: 6200
+salida:
+  dir: data_opt_6200g
+  dir_figuras: figs_opt_6200g

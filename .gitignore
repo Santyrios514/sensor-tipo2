@@ -216,3 +216,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# --- sensor_tipo2 ---
+data_opt*/
+figs_opt*/
