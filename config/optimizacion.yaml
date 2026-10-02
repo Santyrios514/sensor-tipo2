@@ -16,9 +16,9 @@ materiales:                     # densidad en kg/m^3 (los de dbf-sensor)
 costos_usd_kg: {plomo: 4}       # aproximado, solo material
 
 masa:
-  m_max_g: 11500                # masa TOTAL objetivo del sensor. Con las aletas dentro del D acostado
-                                # y la convención del .ork no se alcanza: el optimizador llena el máximo
-                                # plomo posible (el presupuesto con MTOW 16 kg da 6200 g)
+  m_max_g: 10150                # masa TOTAL objetivo del sensor: al alcanzarla, el optimizador busca el
+                                # menor D acostado. 10.15 kg = el máximo con tol_amarre_min = 1.5 mm; con
+                                # 1.2 mm se llega a 11.2 kg (D = 110). El presupuesto con MTOW 16 kg da 6200 g
   factor_llenado: 1.0           # el lastre es plomo macizo
 
 pared:                          # capas de AFUERA hacia ADENTRO (las de dbf-sensor: ρ_eq = 1342 kg/m³)
@@ -57,7 +57,9 @@ condiciones_vuelo:
 remolque:                       # amarre en el CG (trim estático 0), como en dbf-sensor
   alpha_trim_max_deg: 5.0
   alpha_lineal_max_deg: 15.0
-  tol_amarre_min_mm: 1.5        # error admisible mínimo del amarre respecto al CG (null = sin mínimo)
+  tol_amarre_min_mm: 1.2        # error admisible mínimo del amarre respecto al CG (null = sin mínimo).
+                                # Fija el D: con 10.15 kg, 1.5 → D 115 · 1.4 → 112.5 · 1.3 → 110 ·
+                                # 1.2 → 105 · 1.1 → 100 · 1.0 → 97.5 mm (exige ubicar el amarre con esa precisión)
 
 envolvente:
   rotacion_guardado_deg: 45     # guardado acostado con las aletas en diagonal

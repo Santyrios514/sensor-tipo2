@@ -10,7 +10,8 @@ paquete es autocontenido; no importa `dbf-sensor`.
 Lo que no es geometría funciona igual que en `dbf-sensor`: pared fibra de vidrio 0.3 mm + PLA
 1.5 mm, electrónica (ahora de **20 mm** y 150 g) detrás del tapón de lastre delantero, herraje de remolque
 de 15 g, lastre de plomo macizo con tapón delantero y trasero, amarre en el CG con tolerancia
-mínima de 1.5 mm, V = 30 m/s a 1495 m (ISA) y los mismos cuatro criterios del objetivo.
+mínima (1.5 mm en dbf-sensor; aquí **1.2 mm**, ver abajo), V = 30 m/s a 1495 m (ISA) y los mismos
+cuatro criterios del objetivo.
 
 ## Hallazgo 1: las aletas no pueden quedar dentro del diámetro del cuerpo
 
@@ -60,9 +61,10 @@ m \le \frac{\alpha_{max}\,q\,S_{ref}\,C_{N\alpha}\,SM\,D}{g\,\text{tol}_{min}}$$
 
 con $C_{N\alpha} \approx 3.0$. Subir D sube $S_{ref}D \propto D^3$, pero el brazo $x_{CP}-x_{CG}$
 no crece al mismo ritmo, así que el SM en calibres cae; por encima de D ≈ 115 mm el SM llega a 1 y
-la masa baja. El SM por encima de 1 es el que sostiene la tolerancia de 1.5 mm: no se puede
-cambiar por esbeltez. Las otras palancas son `SM_max_cal`, `alpha_trim_max_deg`,
-`tol_amarre_min_mm` y la velocidad de remolque ($q \propto V^2$).
+la masa baja. El SM por encima de 1 es el que sostiene la tolerancia del amarre: no se puede
+cambiar por esbeltez. Llenar el espacio vacío del cuerpo central tampoco sirve: atrasa el CG (con
+el cuerpo lleno, SM ≈ 0.7 y tolerancia ≈ 0.5 mm). Las palancas reales son `tol_amarre_min_mm`,
+`alpha_trim_max_deg`, `SM_max_cal` y la velocidad de remolque ($q \propto V^2$).
 
 ## Convención de forma: la del `.ork` original
 
@@ -76,34 +78,35 @@ forma estricta del original (nariz 0.93 D y transición elipsoide de 0.93 D) la 
 
 ## Resultados de referencia (configuración por defecto, 2026-10-02)
 
-Objetivo: 11.5 kg (`masa.m_max_g`), aletas dentro del D acostado, electrónica de 20 mm, convención
-del `.ork`, SM ∈ [1, 2] y tolerancia de amarre ≥ 1.5 mm. **11.5 kg no se alcanzan**: el
-optimizador llena el máximo plomo posible.
+Aletas dentro del D acostado, electrónica de 20 mm, convención del `.ork`, SM ∈ [1, 2]. La masa
+objetivo es **10.15 kg**, la máxima que se alcanzaba con la tolerancia de amarre de 1.5 mm; con la
+tolerancia relajada, el optimizador la mantiene y busca el menor diámetro:
 
-Frontera masa–diámetro (`data_opt/frontera_masa_D.csv`):
+| `tol_amarre_min_mm` | 1.5 | 1.4 | 1.3 | **1.2** | 1.1 | 1.0 |
+|---|---|---|---|---|---|---|
+| D = D acostado [mm] | 115 | 112.5 | 110 | **105** | 100 | 97.5 |
+| D aparente [mm] | 162.6 | 159.1 | 155.6 | **148.5** | 141.4 | 137.9 |
 
-| D = D acostado [mm] | 90 | 100 | 105 | 110 | 115 | 120 | 125 |
-|---|---|---|---|---|---|---|---|
-| masa total máx. [kg] | 6.68 | 8.23 | 8.64 | 9.56 | **10.15** | 9.35 | 6.02 |
-| SM [cal] | 1.34 | 1.21 | 1.10 | 1.07 | 1.01 | 1.00 | 1.00 |
+La tolerancia es el error con que hay que ubicar el amarre respecto del CG para que el trim no
+pase de 5°: bajarla exige medir el CG (p. ej. por balanceo) y un herraje que se pueda ajustar con
+esa precisión. Con 1.2 mm y sin tope de masa se llega a 11.2 kg (D = 110 mm).
 
 Diseños verificados con OpenRocket 24.12 (con el plomo, la electrónica y el herraje como
-*Mass components*):
+*Mass components*), ambos con tolerancia de 1.2 mm:
 
-| | `modelos/ganador_D115.ork` (máximo plomo) | `modelos/transicion20_D102.5.ork` (transición ≤ 20°) |
+| | `modelos/ganador_D105.ork` | `modelos/transicion20.ork` (transición ≤ 20°) |
 |---|---|---|
-| Candidato | `L400_D115_n0.2_conica_Lt0.8_dtc23.75_tc95_m0.85_g1_s0.5_r1.41421` | `L400_D102.5_n0.2_conica_Lt1.1_dtc21.25_tc75_m1_g1_s0.5_r1.41421` |
-| Nariz / cuerpo central / transición | elipsoide 23 / 190 / cónica 92 mm (**26.4°**) | elipsoide 20.5 / 191.75 / cónica 112.75 mm (19.8°) |
-| Tubo de cola | Ø 23.75 × 95 mm | Ø 21.25 × 75 mm |
-| Aletas (4, Onyx 3 mm) | rectangulares 80.75 × 69.4 mm, r_tip = 81.3 mm | rectangulares 75 × 61.8 mm, r_tip = 72.5 mm |
-| D acostado / D aparente | **115 / 162.6 mm** | **102.5 / 145.0 mm** |
-| Masa total (plomo) | **10.15 kg** (9.64 kg, todo delante) | 8.13 kg (7.67 kg) |
-| SM (OR) · C_Nα · C_D (OR) | 1.01 · 2.97 · 0.374 | 1.14 · 3.0 · 0.371 |
+| Candidato | `L400_D105_n0.2_conica_Lt0.85_dtc22.5_tc100_m0.85_g0.85_s1_r1.41421` | `L400_D102.5_n0.2_conica_Lt1.1_dtc21.25_tc75_m1_g1_s0.5_r1.41421` |
+| Nariz / cuerpo central / transición | elipsoide 21 / 189.75 / cónica 89.25 mm (**24.8°**) | elipsoide 20.5 / 191.75 / cónica 112.75 mm (19.8°) |
+| Tubo de cola | Ø 22.5 × 100 mm | Ø 21.25 × 75 mm |
+| Aletas (4, Onyx 3 mm) | c_r 85, c_t 72.25, flecha 12.75, h 63.0 mm; r_tip = 74.2 mm | rectangulares 75 × 61.9 mm; r_tip = 72.5 mm |
+| D acostado / D aparente | **105 / 148.5 mm** | **102.5 / 145.0 mm** |
+| Masa total (plomo) | **10.15 kg** (9.68 kg, todo delante) | 9.56 kg (9.09 kg) |
+| SM (OR) · C_Nα · C_D (OR) · tolerancia | 1.07 · 3.0 · 0.380 · 1.22 mm | 1.07 · 3.0 · 0.371 · 1.20 mm |
 
-El plomo llena solo los primeros ~94 mm: más plomo detrás de la electrónica bajaría el SM o la
-tolerancia, así que la mitad trasera del cuerpo central queda vacía (sirve de brazo de palanca
-para las aletas). Para una masa objetivo menor, `masa.m_max_g` devuelve el D más chico que la
-alcanza (`config/optimizacion_6200g.yaml`: 6.2 kg → D = 90 mm).
+El plomo llena los primeros ~112 mm; la mitad trasera del cuerpo central queda vacía y sirve de
+brazo de palanca para las aletas. Para otra masa objetivo, cambien `masa.m_max_g`
+(`config/optimizacion_6200g.yaml`: 6.2 kg).
 
 ## Cómo funciona
 
@@ -135,7 +138,7 @@ config/optimizacion.yaml ──► 01_optimizar_malla.py ──► data_opt/rank
    Primero el tapón delantero hasta $SM = SM_{min}$ o la geometría; si se llenó, el tapón trasero
    (transición y tubo de cola) hasta $SM = SM_{min}$; después el recorte al tope $m_{max}$ y por
    último el retroceso hasta cumplir la tolerancia del amarre
-   $$\text{tol}_{amarre}=\frac{\alpha_{max}\,q\,S_{ref}\,C_{N\alpha}\,(x_{CP}-x_{CG})}{m g}\ \ge\ 1.5\text{ mm}$$
+   $$\text{tol}_{amarre}=\frac{\alpha_{max}\,q\,S_{ref}\,C_{N\alpha}\,(x_{CP}-x_{CG})}{m g}\ \ge\ \text{tol}_{min}\ (1.2\text{ mm})$$
 5. **Objetivo** (pesos $w = (10^6, 10^4, 10^2, 1)$, cada $f_j \in [0,1]$):
    $$J = w_1\frac{m_{max}-m}{m_{max}} + w_2\frac{D_2-D_{lo}}{D_{hi}-D_{lo}} + w_3\frac{k_{ef}-k_{lo}}{1-k_{lo}} + w_4\frac{|SM-1.5|}{0.5}$$
    con $D_2$ el D acostado $\max(D, \sqrt2\,r_{tip})$ (`objetivo.diametro: acostado`, por defecto) o
@@ -156,7 +159,7 @@ config/optimizacion.yaml ──► 01_optimizar_malla.py ──► data_opt/rank
 | `.ork` base, CP total (M = 0.3) | −133.636 mm (modelo) vs −133.646 mm (OpenRocket) |
 | `.ork` base, aletas | $C_{N\alpha}$ 0.88473 vs 0.88473; $x_{CP}$ 367.79 vs 367.78 mm |
 | `.ork` base, masas por componente | nariz 0.7 %, el resto < 0.1 % |
-| 50 candidatos verificados | CP ≤ 0.04 mm (0.03 mm tras calibrar); masa total ≤ 0.07 %; CG ≤ 0.01 mm |
+| 50 candidatos verificados | CP ≤ 0.05 mm (0.04 mm tras calibrar); masa total ≤ 0.06 %; CG ≤ 0.01 mm |
 | Llenado contra `dbf-sensor/sensor_opt` | 274 casos idénticos (masa, SM, CG, tolerancia, límite activo) |
 | `.ork` de los ganadores reabiertos | ΔCP = 0.000 mm |
 
@@ -182,11 +185,11 @@ Variantes: un YAML con `hereda: optimizacion.yaml` cambia solo lo que declara
 | Sección | Qué define |
 |---|---|
 | `materiales`, `costos_usd_kg` | densidades (kg/m³) y precio del plomo |
-| `masa` | masa TOTAL objetivo del sensor (11.5 kg por defecto; si no se alcanza, se maximiza); al alcanzarla, el optimizador busca el menor D |
+| `masa` | masa TOTAL objetivo del sensor (10.15 kg por defecto; si no se alcanza, se maximiza); al alcanzarla, el optimizador busca el menor D |
 | `pared` | capas de afuera hacia adentro, por estación (`nariz`, `cuerpo`, `cola`, `tubo_cola`) |
 | `electronica`, `masas_puntuales` | electrónica (20 mm, 150 g) detrás del lastre y herraje de remolque |
 | `lastre` | radio mínimo útil, fracción máxima de L, margen antes de la transición, tapón trasero |
-| `condiciones_vuelo`, `remolque`, `envolvente` | V, altitud ISA, Mach; α de trim y tolerancia mínima del amarre; rotación de guardado |
+| `condiciones_vuelo`, `remolque`, `envolvente` | V, altitud ISA, Mach; α de trim y tolerancia mínima del amarre (1.2 mm); rotación de guardado |
 | `geometria_fija` | nariz elipsoide, transición recortada y aletas (n, material, espesor 3 mm del .ork, flutter) |
 | `malla` | listas de valores de las 11 variables |
 | `restricciones` | $L_{max}$ = 400 mm, SM ∈ [1, 2], $k_{min}$, $d_{tc,min}$ = 20 mm, **D acostado ≤ D** (`D_acostado_max_rel_D`), **convención del `.ork`** (`L_c_min_rel_cola`), $D_{ap,max}$ opcional, h y cuerdas mínimas, ángulo máximo de la transición, base roma |
@@ -207,14 +210,14 @@ masas, CG, CP, SM, tolerancia de amarre y, si se verificó, los valores de OpenR
 
 - Barrowman/OpenRocket: subsónico, ángulos pequeños, flujo libre. No incluye la estela del avión
   ni la del cable.
-- **Aletas en la estela de la transición (riesgo principal del ganador).** El ganador de máxima
-  masa tiene una transición de 26.4°, en el límite de base roma de OpenRocket (L_t/ΔD = 1.01), y
-  SM = 1.01 exacto. Con el flujo separado, las aletas del tubo de cola trabajan en estela y el CP
-  real queda más adelante que el de Barrowman: es probable que el SM real sea < 1. Limitar el
-  ángulo cuesta masa: ≤ 20° → 8.13 kg (D = 102.5 mm, SM 1.14); ≤ 15° → 6.47 kg (D = 100 mm).
+- **Aletas en la estela de la transición (riesgo principal del ganador).** El ganador tiene una
+  transición de 24.8°, cerca del límite de base roma de OpenRocket (26.6°), con SM = 1.07. Con el
+  flujo separado, las aletas del tubo de cola trabajan en estela y el CP real queda más adelante
+  que el de Barrowman, así que el SM real puede quedar por debajo de 1. Con la transición ≤ 20° se
+  pierden 0.6 kg (`modelos/transicion20.ork`: 9.56 kg, D = 102.5 mm).
   Se activa con `restricciones.angulo_cola_max_deg`; también se puede exigir un margen con
   `SM_min_cal` (p. ej. 1.15).
-- **El tubo de cola no se verifica estructuralmente.** Ø 21–24 mm con 1.8 mm de pared y 75–95 mm
+- **El tubo de cola no se verifica estructuralmente.** Ø 21–23 mm con 1.8 mm de pared y 75–100 mm
   de largo, cargando las aletas: revisen rigidez y la carga de despliegue (si hay que engrosarlo,
   suban `restricciones.d_tc_min_mm` y vuelvan a correr).
 - **Nariz roma.** El máximo usa una nariz elipsoide de 0.2 D (≈ 23 mm); con 0.3 D la masa baja
@@ -228,7 +231,7 @@ masas, CG, CP, SM, tolerancia de amarre y, si se verificó, los valores de OpenR
 
 ```
 config/     optimizacion.yaml (única fuente de parámetros), optimizacion_6200g.yaml (variante)
-modelos/    analisis_tipo2.ork (geometría de referencia, OpenRocket 24.12), ganador_D115.ork y transicion20_D102.5.ork (verificados)
+modelos/    analisis_tipo2.ork (geometría de referencia, OpenRocket 24.12), ganador_D105.ork y transicion20.ork (verificados)
 scripts/    01_optimizar_malla.py, 02_verificar_openrocket.py, 03_diagnostico_aletas.py
 src/sensor_tipo2/
   config.py        YAML → SI, validación, malla de cuerpos y aletas, herencia
