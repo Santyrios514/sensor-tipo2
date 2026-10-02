@@ -203,6 +203,7 @@ class Restricciones:
     d_tc_min: float
     D_ap_max: float | None
     D_acostado_max_rel: float | None  # D_acostado ≤ este factor · D (1 = aletas dentro del D acostado)
+    L_c_min_rel_cola: float | None  # convención del .ork: L_c ≥ este factor · (L_t + L_tc)
     h_min: float
     c_min: float
     eps_CN: float
@@ -477,6 +478,7 @@ def cargar(ruta: str | Path | dict, raiz: Path | None = None) -> ConfigOpt:
         k_min=float(r.get("k_min", 0.0)), d_tc_min=float(r.get("d_tc_min_mm", 0.0)) * MM,
         D_ap_max=None if dmax is None else float(dmax) * MM,
         D_acostado_max_rel=None if r.get("D_acostado_max_rel_D") is None else float(r["D_acostado_max_rel_D"]),
+        L_c_min_rel_cola=None if r.get("L_c_min_rel_cola") is None else float(r["L_c_min_rel_cola"]),
         h_min=float(r.get("h_min_mm", 5.0)) * MM, c_min=float(r.get("c_min_mm", 5.0)) * MM,
         eps_CN=float(r.get("eps_CN", 0.5)),
         angulo_cola_max=None if r.get("angulo_cola_max_deg") is None else math.radians(float(r["angulo_cola_max_deg"])),

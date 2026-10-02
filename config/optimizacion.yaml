@@ -16,8 +16,9 @@ materiales:                     # densidad en kg/m^3 (los de dbf-sensor)
 costos_usd_kg: {plomo: 4}       # aproximado, solo material
 
 masa:
-  m_max_g: 10000                # masa TOTAL del sensor (corrida de 10 kg de dbf-sensor; el presupuesto
-                                # con MTOW 16 kg da 6200 g, ver dbf-sensor/config/config.yaml)
+  m_max_g: 11500                # masa TOTAL objetivo del sensor. Con las aletas dentro del D acostado
+                                # y la convención del .ork no se alcanza: el optimizador llena el máximo
+                                # plomo posible (el presupuesto con MTOW 16 kg da 6200 g)
   factor_llenado: 1.0           # el lastre es plomo macizo
 
 pared:                          # capas de AFUERA hacia ADENTRO (las de dbf-sensor: ρ_eq = 1342 kg/m³)
@@ -75,23 +76,25 @@ geometria_fija:
     factor_flutter: 3.0         # bandera flutter_margen_bajo si V_flutter < 3 V
 
 malla:
-  # cuerpo: L, D, nariz, forma y largo de la transición, diámetro y largo del tubo de cola
+  # cuerpo: L, D, nariz, forma y largo de la transición, diámetro y largo del tubo de cola.
+  # Los valores del .ork tipo 2 (nariz 0.93 D, transición elipsoide, tubo de 50 mm) quedan como
+  # referencia; el máximo de masa está en D ≈ 115 mm con nariz roma y transición cónica.
   L_total_mm: [400]             # ≤ restricciones.L_max_mm; se pueden barrer largos menores
-  D_mm: [55, 60, 65, 70, 75, 80, 85, 90]
-  L_n_rel_D: [0.3, 0.4, 0.5]   # nariz elipsoide corta: más cilindro para el plomo (< 0.3 gana < 1 %)
-  cola_forma:                   # la elipsoide del .ork pierde ≈ 13 % de masa frente a la cónica
-    - {forma: conica, parametro: null}
-    - {forma: ogiva,  parametro: 1.0}
-  L_t_rel_D: [1.0, 1.25, 1.5, 1.75]
-  d_tc_mm: [20, 22.5, 25]       # el óptimo queda en el mínimo (restricciones.d_tc_min_mm)
-  L_tc_mm: [120, 150, 180, 210, 240]   # brazo de palanca de las aletas; óptimo ≈ 180–210
+  D_mm: [90, 100, 105, 110, 115, 120, 125]
+  L_n_rel_D: [0.2, 0.3, 0.5, 0.93]   # 0.93 D = la nariz del .ork; 0.2 D gana ≈ 5 % frente a 0.3 D
+  cola_forma:
+    - {forma: conica,    parametro: null}
+    - {forma: elipsoide, parametro: null}  # la del .ork (recortada)
+  L_t_rel_D: [0.7, 0.8, 0.9, 1.0]
+  d_tc_mm: [20, 22.5, 25]       # cerca del mínimo (restricciones.d_tc_min_mm)
+  L_tc_mm: [50, 70, 80, 90, 100]   # 50 mm = el .ork; lo acota restricciones.L_c_min_rel_cola
   # aletas sobre el tubo de cola, alineadas con su extremo (offset bottom = 0)
-  mu_cr: [0.4, 0.55, 0.7]       # c_r = μ L_tc
-  gamma_ct: [0.7, 0.85, 1.0]    # c_t = γ c_r
+  mu_cr: [0.85, 1.0]            # c_r = μ L_tc
+  gamma_ct: [0.85, 1.0]         # c_t = γ c_r
   sigma_flecha: [0.5, 1.0]      # x_s = σ (c_r − c_t): 1 = borde de salida recto (el .ork)
   # r_tip/R ≤ √2 = 1.41421: con 4 aletas guardadas a 45° el D acostado es max(D, √2 r_tip) = D.
   # Por debajo de ≈ 1.3 ningún cuerpo llega a SM = 1 (ver scripts/03_diagnostico_aletas.py).
-  r_tip_rel_R: [1.35, 1.4, 1.41421356]
+  r_tip_rel_R: [1.4, 1.41421356]
 
 restricciones:
   L_max_mm: 400                 # largo total máximo del sensor
@@ -101,6 +104,8 @@ restricciones:
   d_tc_min_mm: 20.0             # diámetro mínimo del tubo de cola (anclaje de aletas y pared)
   D_ap_max_mm: null             # tope opcional del diámetro aparente 2 max(R, r_tip)
   D_acostado_max_rel_D: 1.0     # aletas dentro del D acostado del cuerpo (null = sin tope)
+  L_c_min_rel_cola: 1.0         # convención del .ork: cuerpo central ≥ transición + tubo de cola
+                                # (el .ork: 220 ≥ 65 + 50). null = sin convención (cola larga)
   h_min_mm: 5.0
   c_min_mm: 5.0
   eps_CN: 0.5                   # guarda: Σ C_Nα < eps_CN → candidato descartado

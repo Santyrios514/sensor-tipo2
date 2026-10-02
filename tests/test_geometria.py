@@ -84,6 +84,13 @@ def test_base_roma_y_k_efectivo():
     assert k_efectivo(0.4, 0.0) == pytest.approx(0.4) and k_efectivo(0.4, 1.0) == pytest.approx(1.0)
 
 
+def test_convencion_del_ork(cfg, base_ork):
+    """Cuerpo central ≥ transición + tubo de cola: el .ork la cumple (220 ≥ 115); una cola larga no."""
+    assert construir_cuerpo(cfg, base_ork[0]).ok
+    larga = CuerpoSpec(400, 90, 0.3, "conica", None, 1.125, 20, 180)
+    assert "cuerpo_central_corto" in construir_cuerpo(cfg, larga).motivos
+
+
 def test_motivos_de_cuerpo(cfg):
     assert "d_tubo_cola_bajo_minimo" in construir_cuerpo(cfg, CuerpoSpec(400, 60, 1, "conica", None, 1, 18, 50)).motivos
     assert "cola_base_roma" in construir_cuerpo(cfg, CuerpoSpec(400, 80, 1, "conica", None, 0.4, 32, 50)).motivos

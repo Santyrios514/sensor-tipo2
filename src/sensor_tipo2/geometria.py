@@ -295,8 +295,11 @@ def construir_cuerpo(cfg: ConfigOpt, spec: CuerpoSpec) -> Cuerpo:
     T_tc = espesor_total(cfg.pared["tubo_cola"])
     if not T_tc < spec.d_tc / 2:
         cu.motivos.append("pared_mayor_que_tubo_cola")
-    if not spec.L - spec.Ln - spec.Lt - spec.L_tc > 0:
+    L_c = spec.L - spec.Ln - spec.Lt - spec.L_tc
+    if not L_c > 0:
         cu.motivos.append("L_c_no_positivo")
+    elif rest.L_c_min_rel_cola is not None and L_c < rest.L_c_min_rel_cola * (spec.Lt + spec.L_tc) - 1e-12:
+        cu.motivos.append("cuerpo_central_corto")
     if cu.motivos:
         return cu
     cu.perfil = perfil_de(cfg, spec)

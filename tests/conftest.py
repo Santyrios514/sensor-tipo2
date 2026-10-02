@@ -29,10 +29,10 @@ def raw_ork() -> dict:
 def malla_chica(raw: dict, **cambios) -> dict:
     """Malla reducida para tests rápidos."""
     raw["malla"] = {
-        "L_total_mm": [400], "D_mm": [70, 90], "L_n_rel_D": [0.4],
+        "L_total_mm": [400], "D_mm": [100, 115], "L_n_rel_D": [0.2],
         "cola_forma": [{"forma": "elipsoide", "parametro": None}, {"forma": "conica", "parametro": None}],
-        "L_t_rel_D": [1.25, 1.5], "d_tc_mm": [20, 25], "L_tc_mm": [120, 150],
-        "mu_cr": [0.55], "gamma_ct": [0.85], "sigma_flecha": [1.0], "r_tip_rel_R": [1.0, 1.35, 1.41421356, 1.6],
+        "L_t_rel_D": [0.8, 0.9], "d_tc_mm": [22.5, 25], "L_tc_mm": [80, 95],
+        "mu_cr": [0.85], "gamma_ct": [1.0], "sigma_flecha": [0.5], "r_tip_rel_R": [1.0, 1.35, 1.41421356, 1.6],
     }
     raw["malla"].update(cambios)
     raw["ejecucion"]["refinamiento"] = {"activar": True, "top_K": 2}
@@ -56,8 +56,8 @@ def cfg_ork():
     return cargar(raw_ork())
 
 
-# candidato factible con aletas dentro del D acostado (r_tip/R = √2) y la electrónica de 20 mm
-FACTIBLE = ((400, 90, 0.4, "conica", None, 1.5, 20, 150), (0.55, 0.85, 1.0, 1.41421356))
+# ganador por defecto: aletas dentro del D acostado (r_tip/R = √2), electrónica de 20 mm, convención del .ork
+FACTIBLE = ((400, 115, 0.2, "conica", None, 0.8, 23.75, 95), (0.85, 1.0, 0.5, 1.41421356))
 
 
 @pytest.fixture(scope="session")
