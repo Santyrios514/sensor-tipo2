@@ -4,226 +4,278 @@ Optimización de la geometría y del lastre de plomo del **sensor remolcado tipo
 (`modelos/analisis_tipo2.ork`): nariz + cuerpo (cilíndrico o abombado) + transición + **tubo de
 cola** delgado con aletas freeform montadas sobre el tubo. Sigue la metodología de
 [`dbf-sensor`](https://github.com/Santyrios514/dbf-sensor) (`sensor_opt`): barrido en malla con un
-CP sustituto (Barrowman interno, sin JVM) y verificación de los mejores con OpenRocket 24.12. El
-paquete es autocontenido; no importa `dbf-sensor`.
+modelo propio (Barrowman interno + llenado de plomo, sin JVM) y objetivo ponderado. OpenRocket 24.12
+solo valida a los ganadores. El paquete es autocontenido; no importa `dbf-sensor`.
 
-**Spec v2** (`SPEC_sensor_tipo2_v2.md`): aletas **dentro de 1.2 R** ($r_{tip} \le 1.2\,R$,
-restricción dura que nunca se relaja), $L \le 400$ mm, cuerda de raíz considerable, tubo de cola
-delgado, tope de masa de 11.5 kg y objetivo masa ≫ D aparente ≫ taper ≫ SM. Lo que no es geometría
+**Spec v2, revisión 2** (`SPEC_sensor_tipo2_v2.md`): aletas **dentro de 1.2 R**
+($r_{tip} \le 1.2\,R$, restricción dura que nunca se relaja), $L = 400$ mm, cuerda de raíz
+considerable, tubo de cola delgado, tope de 11.5 kg y criterios **masa ≫ D aparente ≫ SM ≫ taper**.
+El entregable gráfico son **planos** (PNG y PDF), no archivos `.ork`. Lo que no es geometría
 funciona como en `dbf-sensor`: pared fibra de vidrio 0.3 mm + PLA 1.5 mm, electrónica de 20 mm y
 150 g, herraje de 15 g, plomo macizo con tapón delantero y trasero, amarre en el CG con tolerancia
-mínima (**1.2 mm**), V = 30 m/s a 1495 m (ISA).
+mínima de **1.2 mm**, V = 30 m/s a 1495 m (ISA).
 
 ## ¿Es viable?
 
-1. **Sí.** Con 4 aletas, $r_{tip} \le 1.2\,R$ y $L \le 400$ mm hay **159 384 candidatos factibles**
-   (de 1.21 millones evaluados); el ganador está verificado con OpenRocket (SM 1.39).
-2. Admite como máximo **6.45 kg** (56 % de los 11.5 kg), con D = 90 mm (el máximo de la malla) y
-   D aparente 108 mm; la limita la tolerancia del amarre en toda la frontera.
-3. Para llegar a 11.5 kg la concesión mínima es **8 aletas con $r_{tip} = 1.3\,R$** (o 6 aletas a
-   1.6 R; con 1.4 R llegan a 11.4 kg); con 4 aletas no se llega ni con 1.6 R (10.9 kg). Fuera de la malla, más D también
-   ayuda (D = 100 mm: 8.0 kg).
+1. **Sí.** Con 4 aletas, $r_{tip} \le 1.2\,R$ y $L = 400$ mm hay **14 324 candidatos factibles** (de
+   49 176 evaluados); los 5 mejores validan con OpenRocket (ΔCP ≤ 0.06 mm, Δm ≤ 0.005 %).
+2. Admite como máximo **6.45 kg**, el 56 % de los 11.5 kg, con D = 90 mm (el máximo de la malla) y
+   D aparente de 108 mm; en toda la frontera la limita la tolerancia del amarre.
+3. Para llegar a 11.5 kg, la concesión mínima es **8 aletas con $r_{tip} = 1.3\,R$** (o 6 aletas a
+   1.6 R); con 4 aletas no se llega ni con 1.6 R (10.8 kg). El largo ya está en su tope; subir D
+   rinde ≈ 1.8 kg por cada 10 mm (D = 100 mm: 8.0 kg).
 
-## Ganador (verificado con OpenRocket 24.12)
+## Ganador (validado con OpenRocket 24.12)
 
-![ganador](docs/ganador_v2.png)
+![plano del ganador](docs/planos/rank01_L400_D90_n1_conica_fc0_dtc15.75_tc150_m0.7_g0.6_s1_r1.2.png)
 
-`modelos/ganador_v2_D90.ork` (con el plomo, la electrónica y el herraje como *Mass components*) y
-`modelos/ganador_v2_D90_perfil.csv` (casco exterior/interior cada 0.5 mm y polígono de la aleta).
+Plano en A3, escala 1:2: [`docs/planos/rank01_…_r1.2.pdf`](docs/planos/rank01_L400_D90_n1_conica_fc0_dtc15.75_tc150_m0.7_g0.6_s1_r1.2.pdf)
+(vectorial). Geometría para CAD/CFD: `data_opt/rank01_perfil.csv`.
 
-| | `L400_D90_n1_conica_fc0_dtc15.75_tc140_m0.7_g0.7_s1_r1.2` |
+| | `L400_D90_n1_conica_fc0_dtc15.75_tc150_m0.7_g0.6_s1_r1.2` |
 |---|---|
-| Cuerpo | **abombado** ($f_c = 0$, $L_c = 0$): nariz elipsoide 90 mm + transición cónica 170 mm (θ = 12.3°) |
-| Tubo de cola | Ø 15.75 × 140 mm ($k = 0.175$, $L_{tc}/d_{tc} = 8.9$) |
-| Aletas (4, Onyx 3 mm) | $c_r$ 98, $c_t$ 68.6, flecha 29.4, $h$ 46.1 mm; $r_{tip}$ = 54 mm = **1.2 R**; AR 0.55 |
-| D / D acostado / D aparente | 90 / 90 / **108 mm** |
-| Masa total | **6448 g** (plomo 6095 g: 2160 g delante de la electrónica + 3934 g detrás; casco 133 g, aletas 55 g) |
-| Electrónica | x = 63–83 mm, dentro de la nariz ($r_i \ge 41$ mm) |
-| $x_{CG}$ | 98.0 mm (OpenRocket 98.0) |
-| $x_{CP}$ sustituto / OpenRocket | 223.02 / 222.99 mm |
-| $C_{N\alpha}$ (OR) | 2.30 = nariz 2.00 + transición −1.94 + aletas 2.23 |
-| SM sustituto / OpenRocket | 1.389 / 1.389 cal |
-| Tolerancia de amarre | **1.20 mm** (restricción activa) · $C_D$ (OR) 0.191 |
-| Banderas | `aletas_en_estela` (θ_eq = 12.3° > 12°), `tubo_esbelto` (8.9 > 8); flutter 661 m/s |
+| Cuerpo | **abombado** ($f_c = 0$, $L_c = 0$): nariz elipsoide de 90 mm + transición cónica de 160 mm |
+| Tubo de cola | Ø 15.75 × 150 mm ($k = 0.175$) |
+| Aletas (4, Onyx 3 mm) | $c_r$ 105, $c_t$ 63, flecha 42, $h$ 46.1 mm; $r_{tip}$ = 54 mm = **1.2 R**; AR 0.55 |
+| D / D aparente | 90 / **108 mm** |
+| Masa total | **6452 g**: plomo 6100 g (2160 delante de la electrónica + 3940 detrás), casco 131 g, aletas 56 g, electrónica 150 g, herraje 15 g |
+| Electrónica | de x = 65 a 85 mm, dentro de la nariz ($r_i \ge 41$ mm) |
+| $x_{CG}$ modelo / OpenRocket | 98.82 / 98.82 mm |
+| $x_{CP}$ modelo / OpenRocket | 224.53 / 224.48 mm |
+| $C_{N\alpha}$ | 2.284 = nariz 2.000 + transición −1.939 + aletas 2.222 (igual en OpenRocket) |
+| SM modelo / OpenRocket | 1.397 / 1.396 cal |
+| Tolerancia de amarre | **1.20 mm**: es la restricción que limita la masa |
+| $\theta_{eq}$ de la transición · $C_D$ (OpenRocket) | 13.1° · 0.186 |
+| Banderas | `aletas_en_estela` (13.1° > 12°), `tubo_esbelto` ($L_{tc}/d_{tc}$ = 9.5 > 8); flutter 621 m/s |
 
-**Alternativa sin banderas** (`rank05`, en `data_opt/ork/`):
-`L400_D90_n1_conica_fc0_dtc15.75_tc125_m0.7_g0.7_s1_r1.2`, tubo de 125 mm, transición de 185 mm
-(θ = 11.3°, $L_{tc}/d_{tc} = 7.9$), **6417 g** (−31 g), SM (OR) 1.40, $C_D$ 0.181. Cuesta menos de
-lo que los pesos del objetivo consideran indistinguible (116 g), así que es la que recomendamos
-llevar a validación.
+**Alternativa sin banderas (recomendada para la validación independiente):** puesto 15,
+`L400_D90_n1_conica_fc0_dtc15.75_tc120_m0.7_g0.6_s1_r1.2`. Es el mismo cuerpo con el tubo de cola de
+120 mm y la transición de 190 mm (θ = 11.1°, $L_{tc}/d_{tc}$ = 7.6): **6359 g** (−93 g, menos que
+los 116 g que el objetivo considera indistinguibles), SM 1.420 (OpenRocket 1.419), $C_D$ 0.168,
+validado (ΔCP −0.04 mm). Plano: [`docs/planos/rank15_…_r1.2.pdf`](docs/planos/rank15_L400_D90_n1_conica_fc0_dtc15.75_tc120_m0.7_g0.6_s1_r1.2.pdf).
 
-El ganador es un "dardo" con cuerpo abombado: la transición más larga posible es la más suave
-(12°), y todo el volumen grande queda adelante para el plomo. Los cuerpos con tramo cilíndrico
-pierden poco ($f_c = 0.25$: 6.36 kg) pero acortan la transición hasta 24°, con las aletas de lleno
-en la estela.
+![siluetas](docs/planos/comparativo_top.png)
+
+### Validación de los 5 mejores (`02_validar_ganadores.py`)
+
+Criterio: $|\Delta x_{CP}| \le 2$ mm, $|\Delta m| \le 0.5\,\%$ y $SM_{OR} \in [1, 2]$.
+
+| Puesto | $L_{tc}$ / $f_c$ | masa modelo [g] | Δm OR | $x_{CP}$ modelo / OR [mm] | Δ$x_{CG}$ | SM modelo / OR | $C_D$ OR | ¿Valida? |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 150 / 0 | 6451.7 | −0.005 % | 224.53 / 224.48 | +0.004 mm | 1.397 / 1.396 | 0.186 | sí |
+| 2 | 140 / 0 | 6443.6 | −0.004 % | 224.49 / 224.44 | +0.004 mm | 1.407 / 1.406 | 0.180 | sí |
+| 3 | 160 / 0 | 6438.0 | −0.004 % | 224.37 / 224.31 | +0.004 mm | 1.384 / 1.383 | 0.192 | sí |
+| 4 | 170 / 0.125 | 6415.3 | −0.005 % | 214.99 / 214.93 | +0.004 mm | 1.371 / 1.370 | 0.215 | sí |
+| 5 | 130 / 0 | 6413.6 | −0.004 % | 224.17 / 224.12 | +0.004 mm | 1.415 / 1.414 | 0.174 | sí |
+| 15 (extra) | 120 / 0 | 6358.7 | −0.004 % | 223.49 / 223.45 | +0.004 mm | 1.420 / 1.419 | 0.168 | sí |
+
+El ganador es un "dardo" abombado: la nariz roma concentra el plomo adelante, y la transición
+larga es a la vez la más suave y el brazo que separa la fuerza negativa de la transición de la
+positiva de las aletas. Los cuerpos con tramo cilíndrico pierden poco ($f_c = 0.25$: 6.35 kg), pero
+acortan la transición y dejan las aletas de lleno en la estela.
 
 ## Frontera de factibilidad (`03_frontera_factibilidad.py`)
 
-Mejor masa factible por tope de $r_{tip}/R$ y número de aletas, sobre la malla completa
-(5.76·10⁶ evaluaciones, sin refinamiento: por eso 6.24 kg y no 6.45 kg con 4 aletas a 1.2 R). Solo
-las filas **n = 4, tope ≤ 1.2** cumplen la spec; el resto es **diagnóstico** y no entra al ranking.
+Mejor masa factible por tope de $r_{tip}/R$ y número de aletas, sobre la malla completa (231 648
+evaluaciones, sin refinamiento: por eso 6.25 kg y no 6.45 kg con 4 aletas a 1.2 R). Solo las filas
+**n = 4, tope ≤ 1.2** cumplen la spec; el resto es **diagnóstico** y no entra al ranking.
 
 | n | tope $r_{tip}/R$ | factibles | masa máx. [kg] | D aparente [mm] | SM [cal] | tol. amarre [mm] | activa |
 |---|---|---|---|---|---|---|---|
-| **4** | **1.0** | 3 767 | **3.68** | 90 | 1.20 | 1.20 | tol_amarre |
-| **4** | **1.1** | 37 420 | **5.00** | 99 | 1.34 | 1.20 | tol_amarre |
-| **4** | **1.2** | 150 386 | **6.24** | 108 | 1.37 | 1.20 | tol_amarre |
-| 4 | 1.3 | 292 078 | 7.40 | 117 | 1.35 | 1.20 | tol_amarre |
-| 4 | 1.4 | 496 038 | 8.67 | 126 | 1.40 | 1.20 | tol_amarre |
-| 4 | 1.6 | 732 464 | 10.87 | 144 | 1.37 | 1.20 | tol_amarre |
-| 6 | 1.0 | 35 319 | 5.62 | 90 | 1.34 | 1.20 | tol_amarre |
-| 6 | 1.1 | 198 457 | 7.14 | 99 | 1.43 | 1.20 | tol_amarre |
-| 6 | 1.2 | 512 262 | 8.62 | 108 | 1.40 | 1.20 | tol_amarre |
-| 6 | 1.3 | 734 955 | 10.03 | 117 | 1.38 | 1.20 | tol_amarre |
-| 6 | 1.4 | 969 894 | 11.41 | 126 | 1.36 | 1.20 | tol_amarre |
-| 6 | 1.6 | 1 202 796 | 11.50 | 144 | 1.29 | 1.47 | masa |
-| 8 | 1.0 | 73 029 | 6.85 | 90 | 1.42 | 1.20 | tol_amarre |
-| 8 | 1.1 | 333 727 | 8.46 | 99 | 1.39 | 1.20 | tol_amarre |
-| 8 | 1.2 | 729 418 | 10.04 | 108 | 1.43 | 1.20 | tol_amarre |
-| 8 | 1.3 | 962 295 | 11.50 | 117 | 1.42 | 1.22 | masa |
-| 8 | 1.4 | 1 196 901 | 11.50 | 126 | 1.19 | 1.24 | masa |
-| 8 | 1.6 | 1 425 004 | 11.50 | 144 | 1.35 | 1.24 | masa |
+| **4** | **1.0** | 611 | **3.68** | 90 | 1.17 | 1.20 | tol_amarre |
+| **4** | **1.1** | 4 266 | **5.00** | 99 | 1.29 | 1.20 | tol_amarre |
+| **4** | **1.2** | 13 408 | **6.25** | 108 | 1.37 | 1.20 | tol_amarre |
+| 4 | 1.3 | 21 764 | 7.43 | 117 | 1.38 | 1.20 | tol_amarre |
+| 4 | 1.4 | 31 158 | 8.65 | 126 | 1.42 | 1.20 | tol_amarre |
+| 4 | 1.6 | 40 348 | 10.84 | 144 | 1.38 | 1.21 | tol_amarre |
+| 6 | 1.0 | 3 175 | 5.65 | 90 | 1.35 | 1.20 | tol_amarre |
+| 6 | 1.1 | 15 140 | 7.14 | 99 | 1.43 | 1.20 | tol_amarre |
+| 6 | 1.2 | 32 649 | 8.62 | 108 | 1.41 | 1.20 | tol_amarre |
+| 6 | 1.3 | 42 033 | 10.02 | 117 | 1.40 | 1.20 | tol_amarre |
+| 6 | 1.4 | 51 185 | 11.41 | 126 | 1.41 | 1.20 | tol_amarre |
+| 6 | 1.6 | 59 706 | 11.50 | 144 | 1.45 | 1.55 | masa |
+| 8 | 1.0 | 5 570 | 6.85 | 90 | 1.42 | 1.20 | tol_amarre |
+| 8 | 1.1 | 21 704 | 8.47 | 99 | 1.41 | 1.20 | tol_amarre |
+| 8 | 1.2 | 40 413 | 10.03 | 108 | 1.40 | 1.20 | tol_amarre |
+| 8 | 1.3 | 49 586 | 11.50 | 117 | 1.42 | 1.22 | masa |
+| 8 | 1.4 | 58 446 | 11.50 | 126 | 1.36 | 1.33 | masa |
+| 8 | 1.6 | 66 442 | 11.50 | 126 | 1.36 | 1.33 | masa |
 
 ![masa vs tope](docs/masa_vs_tope.png)
 
-Masa máxima factible con 4 aletas y tope 1.2 R (con refinamiento):
+### Brazo contra plomo: masa y SM frente a $L_{tc}$
+
+![masa vs L_tc](docs/masa_vs_Ltc.png)
+
+Cada mm de tubo de cola es un mm menos de plomo, pero es el brazo de las aletas. Con D = 90 mm la
+masa crece hasta $L_{tc}$ ≈ 140–160 mm (6.25 kg) y luego cae; con D = 60 mm la curva es casi
+plana. $L_{tc}$ = 40 mm no tiene factibles: la cuerda mínima de 50 mm no cabe. Masa máxima por D
+(con refinamiento):
 
 | D [mm] | 60 | 65 | 70 | 75 | 80 | 85 | 87.5 | 90 |
 |---|---|---|---|---|---|---|---|---|
-| masa [kg] | 2.67 | 3.21 | 3.68 | 4.48 | 5.04 | 5.63 | 6.13 | **6.45** |
-| SM [cal] | 1.97 | 1.93 | 1.75 | 1.67 | 1.56 | 1.46 | 1.43 | 1.39 |
+| masa [kg] | 2.67 | 3.22 | 3.68 | 4.49 | 5.05 | 5.63 | 6.13 | **6.45** |
+| SM [cal] | 2.00 | 1.92 | 1.77 | 1.69 | 1.58 | 1.48 | 1.44 | 1.40 |
 
-| $r_{tip}/R$ | 1.0 | 1.05 | 1.1 | 1.15 | 1.2 |
-|---|---|---|---|---|---|
-| masa [kg] | 3.68 | 4.35 | 5.00 | 5.60 | **6.45** |
-
-| L [mm] | 340 | 370 | 400 |
-|---|---|---|---|
-| masa [kg] | 5.01 | 5.62 | **6.45** |
-
-La masa crece con D, con $r_{tip}$ y con L en todo el rango, así que **los tres topes son activos**
-(D = 90 mm es además un PENDIENTE). Con la tolerancia de amarre activa,
+Con la tolerancia de amarre activa,
 
 $$m \le \frac{\alpha_{max}\,q\,S_{ref}\,C_{N\alpha}\,(x_{CP}-x_{CG})}{g\,\text{tol}_{min}}$$
 
-y cada aleta más, cada mm de envergadura y cada mm de largo suben $C_{N\alpha}(x_{CP}-x_{CG})$, y con
+así que cada aleta más, cada mm de envergadura y cada mm de D suben $C_{N\alpha}(x_{CP}-x_{CG})$, y con
 él la masa admisible. El escalado con $n$ usa el factor de interferencia de `FinSetCalc` (abajo),
 que es optimista para aletas tan juntas sobre un tubo de 16 mm.
 
-## Corrección: las aletas dentro del calibre sí pueden estabilizar
+## Por qué las aletas dentro del calibre sí estabilizan
 
-La versión anterior de este README decía que con $r_{tip} \le R$ el sensor nunca podía ser estable
-porque, por cuerpos esbeltos, transición + aletas suman $C_{N\alpha} \le 0$. **La suma sí es ≤ 0,
-pero la conclusión era falsa**: las dos fuerzas no actúan en el mismo punto. La transición aporta
-una fuerza negativa en su centroide y las aletas una positiva al final del tubo de cola. Es un
-**par**, que lleva el CP hacia atrás aunque la fuerza neta sea casi cero, como dos manos que giran
-un volante sin empujarlo:
+Una versión anterior de este README decía que con $r_{tip} \le R$ el sensor nunca podía ser
+estable porque, por cuerpos esbeltos, transición + aletas suman $C_{N\alpha} \le 0$. **La suma sí es
+≤ 0, pero la conclusión era falsa**: las dos fuerzas no actúan en el mismo punto. La transición
+aporta una fuerza negativa en su centroide y las aletas una positiva al final del tubo de cola.
+Juntas forman un **par** que lleva el CP hacia atrás aunque la fuerza neta sea casi cero, como dos
+manos que giran un volante sin empujarlo:
 
-$$x_{CP}=\frac{\sum_i C_{N\alpha,i}\,x_i}{\sum_i C_{N\alpha,i}}
-=\frac{2\,x_n + C_{N\alpha,t}\,x_t + C_{N\alpha,f}\,x_f}{2 + C_{N\alpha,t} + C_{N\alpha,f}}$$
+$$x_{CP}=\frac{2\,x_n + C_{N\alpha,t}\,x_t + C_{N\alpha,f}\,x_f}{2 + C_{N\alpha,t} + C_{N\alpha,f}}$$
 
-En el ganador: nariz +2.00 en 30 mm, transición −1.94 en 155 mm y aletas +2.23 en 337 mm, así que
-$x_{CP} = 223$ mm aunque las aletas solo salgan 9 mm por fuera del cuerpo. El brazo $x_f - x_t$ es
-lo que manda: el `.ork` original (tubo de 50 mm, transición de 65 mm) tiene un brazo corto y su CP
-queda delante de la nariz ($-133.6$ mm); el ganador usa un tubo de 140 mm y una transición de
-170 mm. `tests/test_lastre.py` lo comprueba con $r_{tip} = R$.
+En el ganador: nariz +2.000 en 30 mm, transición −1.939 en 151 mm y aletas +2.222 en 336 mm, así que
+$x_{CP} = 224.5$ mm aunque las aletas solo salgan 9 mm por fuera del cuerpo. Lo que manda es el
+brazo $x_f - x_t$: el `.ork` original (tubo de 50 mm, transición de 65 mm) tiene un brazo corto y
+su CP queda delante de la nariz (−133.6 mm). `tests/test_lastre.py` lo comprueba con $r_{tip} = R$.
 
-## PENDIENTES (supuestos de la spec v2 por confirmar)
+## PENDIENTES (supuestos de la spec por confirmar)
 
-Sensibilidad: malla de 4 aletas reducida alrededor del óptimo (L = 400, D ∈ {80, 85, 90}, sin
-refinamiento), cambiando un parámetro a la vez. Referencia: **6.45 kg**.
+Sensibilidad: malla por defecto completa **sin refinamiento** (referencia **6.25 kg**), cambiando
+un parámetro a la vez.
 
-| Parámetro | Valor usado | Variación → masa máxima [kg] |
+| Parámetro | Valor usado | Variación → masa máxima [kg] (Δ) |
 |---|---|---|
-| `electronica.r_min_mm` | `null` (detrás del tapón delantero y antes de la transición) | 15 → **7.07** · 25 → **7.06** · 35 → 6.80 |
-| `restricciones.d_tc_min_mm` | 15 | 12 → 6.64 · 20 → 5.80 · 25 → 5.37 |
-| `restricciones.c_r_min_mm` | 50 | 30 → 6.45 · 80 → 6.45 (no activa: el ganador tiene $c_r$ = 98 mm) |
-| `restricciones.L_n_rel_D_min` | 1.0 | 0.75 → 6.55 |
-| D máximo (`malla.D_mm`) | 90 | 100 → **8.01** (D aparente 120 mm) |
-| `masa.m_max_g` | 11500 | no activa |
-| `remolque.tol_amarre_min_mm` | 1.2 (la spec supone 1.5) | 1.5 → **5.59** |
+| `electronica.r_min_mm` | `null` | 15 → **6.86** (+0.61) · 25 → **6.85** (+0.60) · 35 → 6.60 (+0.34) |
+| `restricciones.d_tc_min_mm` | 15 | 12 → 6.63 (+0.38) · 20 → 5.83 (−0.43) · 25 → 5.37 (−0.88) |
+| `restricciones.c_r_min_mm` | 50 | 30, 80 y 100 → 6.25 (sin cambio: el óptimo usa $c_r$ = 112 mm) |
+| `restricciones.L_n_rel_D_min` | 1.0 | 0.75 → 6.37 (+0.12) |
+| D máximo (`malla.D_mm`) | 90 | 100 → **8.03** (+1.78; D aparente 120 mm) |
+| `masa.m_max_g` | 11500 | no activo |
+| `remolque.tol_amarre_min_mm` | 1.2 (la spec supone 1.5) | 1.5 → **5.42** (−0.83) |
+| `objetivo.orden` | SM antes que taper | orden de `dbf-sensor` → mismo ganador (la masa decide) |
 
-- `r_min_mm` es el más rentable: con `null` la electrónica tiene que caber antes de la transición,
-  y en un cuerpo abombado eso es dentro de la nariz (en el ganador, con $r_i \ge 41$ mm, sobra).
-  Con un valor, la electrónica baja a la transición mientras $r_i \ge r_{min}$ y deja más plomo
-  adelante. Si cabe en un radio de 25 mm, conviene fijarlo (+0.6 kg).
-- La tolerancia de amarre es lineal en la masa: 1.2/1.5 × 6.45 ≈ 5.2 kg; el óptimo se reacomoda
-  y queda en 5.59 kg.
+- **`r_min_mm` es la palanca más barata.** Con `null` la electrónica tiene que terminar antes de la
+  transición, y en un cuerpo abombado eso es dentro de la nariz (en el ganador cabe con holgura:
+  $r_i \ge 41$ mm). Con un valor, la electrónica puede bajar a la transición mientras
+  $r_i \ge r_{min}$, y el plomo que queda delante adelanta el CG. Si la electrónica cabe en un radio
+  de 25 mm, conviene fijarlo.
+- **El tubo de cola manda más que la cuerda**: 3 mm menos de diámetro mínimo valen +0.4 kg y 5 mm
+  más cuestan −0.4 kg. La cuerda mínima no está activa: con envergadura pequeña el $C_{N\alpha}$ de
+  las aletas se satura con la cuerda, y el óptimo ya usa cuerdas de 100 mm o más.
+- **La tolerancia de amarre es casi lineal en la masa**: 1.2/1.5 × 6.25 = 5.0 kg; el óptimo se
+  reacomoda (tubo más largo) y queda en 5.42 kg.
+- **Tolerancias implícitas** (`tolerancias_implicitas.json`): un criterio inferior compensa como
+  mucho **116 g** de masa, **0.48 mm** de D aparente y **0.010 cal** de SM. La de diámetro ya no
+  tiene sentido físico como compensación: está por debajo del paso más fino del D aparente
+  (D cada 5 mm y $r_{tip}$ cada 0.05 R dan pasos de 3–6 mm, y ≥ 1.5 mm aun tras el refinamiento a
+  medio paso), así que el criterio 2 actúa como lexicográfico estricto. La de SM solo desempata.
 
 ## Cómo funciona
 
 ```
-config/optimizacion.yaml ──► 01_optimizar_malla.py ──► data_opt/ranking.csv ──► 02_verificar_openrocket.py
-                              (sustituto, sin JVM)       pareto.csv              (OpenRocket 24.12: CP, masas,
-                                                                                  calibración, .ork del top 5)
-                         ──► 03_frontera_factibilidad.py ──► frontera_factibilidad.csv, masa_vs_tope.png
-                                                             (casi_factibles.csv si no hay factibles)
+config/optimizacion.yaml ──► 01_optimizar_malla.py ──► data_opt/ranking.csv ──► 04_planos.py ──► planos/*.png, *.pdf
+                              (modelo propio, sin JVM)                               (sin JVM)
+                         ──► 03_frontera_factibilidad.py ──► frontera_factibilidad.csv, masa_vs_tope.png,
+                              (siempre; sin JVM)              masa_vs_Ltc.png, casi_factibles.csv
+                         ──► 02_validar_ganadores.py (opcional, OpenRocket) ──► validacion_or.csv
+                              (si corre antes de 04, los planos muestran la validación)
 ```
 
-1. **Variables.** Por cuerpo: $L \le 400$ mm, $D$, nariz $L_n/D \ge 1$ (elipsoide), fracción
-   cilíndrica $f_c$, forma de la transición, $k = d_{tc}/D$ y $L_{tc}$:
-   $$L_{disp} = L - L_n - L_{tc},\qquad L_c = f_c\,L_{disp},\qquad L_t = (1-f_c)\,L_{disp}$$
-   ($f_c = 0$: cuerpo abombado, nariz y transición unidas). Por aleta: $c_r = \mu L_{tc} \ge 50$ mm,
-   $c_t = \gamma c_r$, flecha $x_s = \sigma (c_r - c_t)$ y $r_{tip}/R \le 1.2$. La raíz termina en el
-   extremo del tubo, como en el `.ork`.
+1. **Variables, por prioridad** (resolución de la malla según el criterio al que sirven):
+
+   | Grupo | Variables | Malla |
+   |---|---|---|
+   | A · masa | $D$, $L_{tc}$, $f_c$, $L_n/D$ | 7 × 9 × 4 × 2 |
+   | B · diámetro aparente | $r_{tip}/R \le 1.2$ | 5 |
+   | C · estabilidad | $k = d_{tc}/D$ | 5 |
+   | D · ajuste fino | $\mu = c_r/L_{tc}$, $\gamma$, $\sigma$, forma de la transición | 2 × 1 × 2 × 2 |
+
+   $L = 400$ mm fijo, $L_{disp} = L - L_n - L_{tc}$, $L_c = f_c\,L_{disp}$ y $L_t = (1-f_c)\,L_{disp}$
+   ($f_c = 0$: cuerpo abombado). Aletas: $c_r = \mu L_{tc} \ge 50$ mm, $c_t = \gamma c_r$,
+   $x_s = \sigma(c_r - c_t)$, raíz al ras del extremo del tubo. 5 040 cuerpos × 20 aletas = 100 800
+   candidatos; 48 260 tras descartar los geométricamente imposibles. El refinamiento a medio paso
+   alrededor de los 10 mejores toca solo los grupos A, B y C. La corrida completa tarda ≈ 25 s.
 2. **Perfil y cavidad.** Funciones de forma de OpenRocket (incluida la transición `clipped`);
    cavidad por erosión morfológica del perfil por las capas de pared; volumen y momento acumulados
    por Simpson:
    $$\forall(x)=\int_0^x \pi r_i^2\,dx,\qquad \Phi_1(x)=\int_0^x \pi r_i^2\,x\,dx$$
-3. **CP sustituto.** Barrowman general para nariz (+2) y transición ($2(k^2-1)$) y franjas para las
-   aletas, como `FinSetCalc`:
+3. **CP (modelo propio).** Barrowman general para nariz (+2) y transición ($2(k^2-1)$) y franjas para
+   las aletas, como `FinSetCalc`:
    $$C_{N\alpha,1}=\frac{2\pi s^2/A_{ref}}{1+\sqrt{1+\left(\beta s^2/(A_f\cos\Gamma)\right)^2}},\qquad
    C_{N\alpha,f}=C_{N\alpha,1}\,\frac{n}{2}\,f_n\left(1+\frac{r_{tc}}{s+r_{tc}}\right)$$
-   con $f_n$ = 1 (n ≤ 4), 0.948, 0.913, 0.854, 0.81 (n = 5–8) y 0.75 (n > 8), leído del código de
-   `FinSetCalc.calculateNonaxialForces` (OpenRocket 24.12) y verificado contra OpenRocket con 6 y 8
-   aletas (`test_openrocket.py`).
-4. **Llenado de plomo** (idéntico a `dbf-sensor`, verificado caso por caso). Electrónica detrás del
-   tapón delantero:
+   con $f_n$ = 1 (n ≤ 4), 0.948, 0.913, 0.854, 0.81 (n = 5–8) y 0.75 (n > 8), leído de
+   `FinSetCalc.calculateNonaxialForces` (OpenRocket 24.12) y verificado con 6 y 8 aletas (T7).
+4. **Llenado de plomo** (idéntico a `dbf-sensor`). Electrónica detrás del tapón delantero:
    $$x_{CG}(\ell)=\frac{M_0+\rho_b\,\Phi_1(\ell)+m_e\,\bar x_e(\ell)}{m_0+\rho_b\,\forall(\ell)+m_e},\qquad SM=\frac{x_{CP}-x_{CG}}{D}$$
-   Con `electronica.r_min_mm`, la electrónica va donde $r_i \ge r_{min}$:
-   $x_e(\ell) = \max(x_{b0}+\ell+h,\ x_a)$ y $\ell_{geo} = x_b - L_e - 2h - x_{b0}$, con $[x_a, x_b]$
-   el tramo continuo más largo con $r_i \ge r_{min}$ y $h$ la holgura. Primero el tapón delantero
-   hasta $SM = SM_{min}$ o la geometría; si se llenó, el trasero; después el tope $m_{max}$ y por
-   último el retroceso hasta cumplir
+   Con `electronica.r_min_mm`, $x_e(\ell) = \max(x_{b0}+\ell+h,\ x_a)$ y
+   $\ell_{geo} = x_b - L_e - 2h - x_{b0}$, con $[x_a, x_b]$ el tramo con $r_i \ge r_{min}$. Primero el
+   tapón delantero hasta $SM = SM_{min}$ o la geometría; luego el trasero; después el tope
+   $m_{max}$ y por último el retroceso hasta cumplir
    $$\text{tol}_{amarre}=\frac{\alpha_{max}\,q\,S_{ref}\,C_{N\alpha}\,(x_{CP}-x_{CG})}{m g}\ \ge\ 1.2\text{ mm}$$
-5. **Objetivo** (pesos $w = (10^6, 10^4, 10^2, 1)$, cada $f_j \in [0,1]$):
-   $$J = w_1\frac{m_{max}-m}{m_{max}} + w_2\frac{D_{ap}-D_{lo}}{D_{hi}-D_{lo}} + w_3\frac{k_{ef}-k_{lo}}{1-k_{lo}} + w_4\frac{|SM-1.5|}{0.5}$$
-   con $D_{ap} = 2\max(R, r_{tip})$ y $k_{ef}=\sqrt{k^2+f_b(1-k^2)}$ (Hoerner, como OpenRocket).
-   SM ∈ [1, 2] es restricción dura. Un criterio inferior compensa como mucho 116 g de masa o 0.48 mm
-   de D aparente (`tolerancias_implicitas.json`).
-6. **Malla** (2.86·10⁶ candidatos; 1.20·10⁶ tras descartar los cuerpos geométricamente imposibles:
-   nariz, tubo o cuerpo que no caben, electrónica que no cabe) y refinamiento a medio paso alrededor
-   de los 10 mejores; ≈ 8 min en 4 núcleos. Si el conteo pasa de `max_evaluaciones`, el script lo
-   avisa y hay que usar una malla gruesa.
-7. **Banderas** (informativas, no cambian el ranking): `aletas_en_estela` si
+5. **Objetivo** ($w = (10^6, 10^4, 10^2, 1)$ en el orden de `objetivo.orden`):
+   $$f_1=\frac{m_{max}-m}{m_{max}},\quad f_2=\frac{D_{ap}-D_{lo}}{D_{hi}-D_{lo}},\quad
+   f_3=\frac{SM_{max}-SM}{SM_{max}-SM_{min}},\quad f_4=\frac{k_{ef}-k_{lo}}{1-k_{lo}}$$
+   con $D_{ap} = 2\max(R, r_{tip})$ y $k_{ef}=\sqrt{k^2+f_b(1-k^2)}$. SM ∈ [1, 2] es restricción
+   dura y, dentro del rango, se prefiere el mayor: el modelo es optimista con las aletas en la
+   estela, así que a igual masa y diámetro vale más el margen que el arrastre.
+   `objetivo.orden: [masa, diametro, taper, SM]` vuelve al orden de `dbf-sensor`.
+6. **Banderas** (informativas): `aletas_en_estela` si
    $\theta_{eq} = \arctan\big((R - r_{tc})/L_t\big) > 12°$, `tubo_esbelto` si $L_{tc}/d_{tc} > 8$,
-   `frac_h_fuera_sombra` (fracción de la envergadura fuera de R) y el alargamiento AR.
-8. **Verificación con OpenRocket** de los 20 mejores y una muestra estratificada de 30 por
-   $(D, k, f_c, L_{tc})$; calibración $x_{CP}^{OR} \approx \alpha + \beta\,x_{CP}^{sust}$; si el residuo
-   pasa de 2 mm se recalcula la malla. Se descarta lo que tenga SM (OR) fuera de [1, 2]; si se agotan
-   los candidatos, no hay ganador.
+   `frac_h_fuera_sombra` $= \max(0, r_{tip} - R)/h$ y AR $= h^2/A_f$.
+7. **Validación con OpenRocket** (solo ganadores): los 5 mejores factibles se arman sobre la
+   plantilla `analisis_tipo2.ork` con el plomo, la electrónica y el herraje como *Mass components*.
+   Valida si $|\Delta x_{CP}| \le 2$ mm, $|\Delta m| \le 0.5\,\%$ y $SM_{OR} \in [1, 2]$; el ganador es
+   el primero que valida. Si alguno supera la tolerancia de CP, el script se detiene y lo reporta
+   (código 5): no hay calibración. No se guarda ningún `.ork`.
+
+## Planos (`04_planos.py`)
+
+Uno por cada uno de los `salida.N_planos` mejores (y por cada `--cand`), en `planos/rankNN_<cand_id>.png`
+(300 dpi) y `.pdf` (vectorial): hoja A3 a la mayor escala normalizada que cabe (1:2 con L = 400 mm),
+con vista lateral en corte (pared por capas, tapones de plomo rayados, electrónica, herraje, tubo y
+aletas en verdadera magnitud, CG y CP con el brazo SM·D acotado), vista posterior (aletas con su
+rotación y círculo del D aparente), cotas en mm, tabla de cotas, barra de escala y cajetín (masas,
+estabilidad, $\theta_{eq}$, AR, $V_{flutter}$, restricción activa, banderas y la línea de validación
+con OpenRocket o "sin validar"). Además, `planos/comparativo_top.png` (siluetas superpuestas) y
+`data_opt/rankNN_perfil.csv` ($x$, $r_e$, $r_i$ y polígono de la aleta) para CAD/CFD. Sin
+factibles, dibuja los 3 primeros casi factibles con el rótulo INFACTIBLE.
 
 ## Validación del modelo
 
 | Comparación | Diferencia |
 |---|---|
 | `.ork` base, CP total | −133.636 mm (modelo) vs −133.646 mm (OpenRocket) |
-| 50 candidatos verificados | calibración β = 1.0001, α = −0.04 mm, residuo máx. 0.18 mm; masa total ≤ 0.05 % |
-| Cuerpo abombado ($L_c = 0$) | perfil ≤ 0.02 mm, CP ≤ 0.03 mm; masa del casco +0.35–0.45 % (abajo) |
-| 6 y 8 aletas | $C_{N\alpha}$ relativo ≤ 10⁻³, $x_{CP}$ ≤ 0.1 mm |
-| Llenado contra `dbf-sensor/sensor_opt` | 274 casos idénticos; 230 casos dorados de la v1 (`tests/datos/llenado_v1.csv`) |
-| `.ork` del ganador reabierto | ΔCP = 0.000 mm |
+| 6 candidatos validados | ΔCP ≤ 0.06 mm, $C_{N\alpha}$ idéntico, Δm ≤ 0.005 %, ΔCG ≤ 0.004 mm |
+| Cuerpo abombado ($L_c = 0$, T4) | perfil ≤ 0.02 mm, CP ≤ 0.06 mm; casco: transición y tubo 0.02 %, nariz 0.53 % (abajo) |
+| 6 y 8 aletas (T7) | $C_{N\alpha}$ relativo ≤ 10⁻³, $x_{CP}$ ≤ 0.1 mm |
+| Llenado (T2) | 230 casos dorados de la versión anterior (`tests/datos/llenado_v1.csv`); 274 casos idénticos a `dbf-sensor/sensor_opt` |
+
+**Masa de la nariz frente a OpenRocket (0.53 %).** OpenRocket integra cada componente con 128
+troncos de cono y mide la pared en vertical sobre la secante, $r_i = r - t/\cos\theta$. En una nariz
+roma y curva eso da menos pared que un espesor normal uniforme, que es lo que calcula la erosión del
+modelo. T4 replica el esquema de OpenRocket sobre el mismo perfil y reproduce su masa al 0.01 %: la
+geometría coincide y la diferencia es el esquema (0.27 g de 6.45 kg). Por eso T4 exige < 0.1 % en
+transición y tubo de cola, y < 1 % en la nariz, en lugar del 0.1 % de la spec en todo el casco.
+
+**Corrección del puente con OpenRocket.** OpenRocket admite una sola capa de pared. Antes se usaba
+la densidad ponderada por espesor, que vale para paredes planas. En un tubo de Ø 16 mm la capa
+exterior (fibra, más densa) tiene más área que la interior, y la pared quedaba 0.7 % liviana. Ahora
+la densidad equivalente es masa de las capas / volumen de la pared, por estación.
 
 ## Instalación y uso
 
 ```bash
 pip install -e ".[dev]"            # numpy, scipy ≥ 1.12, pandas, pyyaml, matplotlib, pytest
-pip install -e ".[openrocket]"     # script 02: orlab + JPype (JDK 17 o 21)
+pip install -e ".[openrocket]"     # solo para el script 02: orlab + JPype (JDK 17 o 21)
 python -m orlab fetch 24.12        # o ORLAB_JAR=/ruta/OpenRocket-24.12.jar
 
-python scripts/01_optimizar_malla.py           # [--config ...] [--procesos N] [--sin-figuras]
-python scripts/02_verificar_openrocket.py      # verifica, calibra y exporta .ork y ganador_perfil.csv
-python scripts/03_frontera_factibilidad.py     # tope r_tip/R × n aletas (≈ 40 min); --gruesa: malla gruesa
+python scripts/01_optimizar_malla.py           # ranking (≈ 25 s) [--config ...] [--procesos N] [--sin-figuras]
+python scripts/03_frontera_factibilidad.py     # frontera r_tip/R × n, masa vs L_tc (≈ 2 min) [--gruesa]
+python scripts/02_validar_ganadores.py         # opcional, OpenRocket [--cand ID ...]
+python scripts/04_planos.py                    # planos PNG + PDF [--cand ID ...] [--n N]
 pytest                                         # los de OpenRocket se saltan sin java/orlab
 ```
 
@@ -241,38 +293,43 @@ Variantes: un YAML con `hereda: optimizacion.yaml` cambia solo lo que declara
 | `lastre` | radio mínimo útil, fracción máxima de L, margen antes de la transición, tapón trasero |
 | `condiciones_vuelo`, `remolque`, `envolvente` | V, altitud ISA, Mach; α de trim y tolerancia mínima del amarre (1.2 mm); rotación de guardado |
 | `geometria_fija` | nariz elipsoide, transición recortada, aletas (n, material, espesor 3 mm, flutter) |
-| `malla` | $L$, $D$, $L_n/D$, $f_c$, forma de la transición, $k$ (o $d_{tc}$), $L_{tc}$, $\mu$, $\gamma$, $\sigma$, $r_{tip}/R$ |
+| `malla` | grupos A ($D$, $L_{tc}$, $f_c$, $L_n/D$), B ($r_{tip}/R$), C ($k$) y D ($\mu$, $\gamma$, $\sigma$, forma); $L$ |
 | `restricciones` | $L_{max}$, SM ∈ [1, 2], **$r_{tip}/R \le 1.2$** (error de configuración si la malla lo pasa), $L_n/D \ge 1$, $c_r \ge 50$ mm, $k_{min}$, $d_{tc} \ge 15$ mm, avisos de esbeltez y estela, base roma |
-| `objetivo` | pesos, diámetro del criterio 2 (`aparente`) y SM objetivo |
-| `ejecucion`, `numerico`, `openrocket`, `salida` | paralelo, `max_evaluaciones`, refinamiento, verificación, discretización, `.ork` base y carpetas |
+| `objetivo` | `orden`, `pesos`, `diametro` (aparente), `f_SM_modo` (max) |
+| `ejecucion` | paralelo, `max_evaluaciones`, refinamiento, `validacion_or` (N_ganadores, tol_cp_mm, tol_masa_pct) |
+| `numerico`, `openrocket`, `salida` | discretización, plantilla `.ork`, carpetas (`dir`, `dir_figuras`, `dir_planos`) y `N_planos` |
 
 ## Salidas
 
-`data_opt/`: `ranking.csv` (todos los candidatos: `factible`, `motivos`, objetivos, geometría,
-banderas, masas, CG, CP, SM, tolerancia y, si se verificó, OpenRocket), `pareto.csv`,
-`frontera_masa_D.csv`, `frontera_factibilidad.csv`, `casi_factibles.csv` (solo si no hay
-factibles), `verificacion_or.csv`, `calibracion.json`, `tolerancias_implicitas.json`,
-`ganador_perfil.csv` y `ork/rankNN_*.ork`. `figs_opt/`: `ganador_dibujo.png`,
-`frontera_masa_D.png`, `masa_vs_tope.png`, `pareto.png`, `factibilidad.png`, `sensibilidad.png` y
-`calibracion.png`.
+- `data_opt/`: `ranking.csv` (todos los candidatos: `factible`, `motivos`, $f_1$…$f_4$, J, geometría,
+  banderas, masas, CG, CP, SM, tolerancia y, tras el script 02, `validado_or` y `ganador`),
+  `pareto.csv`, `frontera_masa_D.csv`, `frontera_factibilidad.csv`, `masa_vs_Ltc.csv`,
+  `casi_factibles.csv` (solo sin factibles), `validacion_or.csv`, `tolerancias_implicitas.json` y
+  `rankNN_perfil.csv`.
+- `planos/`: `rankNN_<cand_id>.png` y `.pdf` y `comparativo_top.png`.
+- `figs_opt/`: `pareto.png`, `factibilidad.png`, `sensibilidad.png`, `frontera_masa_D.png`,
+  `masa_vs_tope.png` y `masa_vs_Ltc.png`.
+
+`docs/` guarda una copia de los planos del ganador y de la alternativa sin banderas, y de las
+figuras de la frontera, para verlas en GitHub.
 
 ## Hipótesis y limitaciones
 
 - **Barrowman no modela la estela de la transición sobre aletas dentro del calibre.** Con
   $r_{tip} = 1.2\,R$ solo el 20 % de la envergadura sale de la sombra del cuerpo, y el ganador tiene
-  una transición de 12.3°: si el flujo se separa, las aletas pierden sustentación, el CP real queda
-  más adelante y el SM real puede caer por debajo de 1. La alternativa `rank05` (11.3°) reduce el
-  riesgo, no lo elimina.
+  una transición de 13.1°. Si el flujo se separa, las aletas pierden sustentación, el CP real queda
+  más adelante y el SM real puede caer por debajo de 1. La alternativa del puesto 15 (11.1°) reduce
+  el riesgo, no lo elimina.
 - **El escalado con $n$ es optimista.** Las filas de 6 y 8 aletas usan el factor de interferencia
   de OpenRocket, pensado para aletas sobre el cuerpo de un cohete, no para 8 aletas de 46 mm sobre un
   tubo de 16 mm.
 - **El ganador necesita una validación independiente (CFD o ensayo) antes de fabricarse.**
-- Masa del casco del cuerpo abombado +0.35–0.45 % frente a OpenRocket (erosión normal exacta
-  contra la aproximación de OpenRocket en la nariz y la unión): < 1 g frente a 6.4 kg.
+- **El tubo de cola no se verifica estructuralmente**: Ø 15.75 mm con 1.8 mm de pared y 150 mm de
+  largo cargando las aletas ($L_{tc}/d_{tc}$ = 9.5). Revisen rigidez y la carga de despliegue.
+- Con `electronica.r_min_mm: null`, la electrónica de los cuerpos abombados queda dentro de la nariz
+  sin que el modelo revise su radio; en el ganador sobra ($r_i \ge 41$ mm), pero confirmen el valor.
 - OpenRocket avisa *"Zero-volume bodies may not simulate accurately"* por el cuerpo de largo 0;
-  el cálculo de CP y de masas no se ve afectado.
-- **El tubo de cola no se verifica estructuralmente**: Ø 15.75 mm con 1.8 mm de pared y 140 mm de
-  largo cargando las aletas ($L_{tc}/d_{tc} = 8.9$). Revisen rigidez y la carga de despliegue.
+  el CP y las masas no se ven afectados.
 - Subsónico, ángulos pequeños, flujo libre; no incluye la estela del avión ni la del cable. Trim
   estático y lineal; la electrónica es una masa uniforme de diámetro completo.
 - El plomo no se funde dentro del casco (327 °C frente a ~60–80 °C del PLA): se funde o mecaniza
@@ -280,30 +337,31 @@ factibles), `verificacion_or.csv`, `calibracion.json`, `tolerancias_implicitas.j
 
 ## Historia
 
-- **v1** (`modelos/v1/`): aletas dentro del **D acostado** ($r_{tip} = \sqrt2\,R$), 10.15 kg con
-  D = 105 mm (`ganador_D105.ork`) y transición ≤ 20° (`transicion20.ork`). **No cumplen la spec v2**
-  ($r_{tip} > 1.2\,R$); se guardan como referencia.
-- **v2** (esta versión): aletas dentro de 1.2 R, cuerpo abombado, tubo delgado y estudio de
-  factibilidad.
+- **v1** (`modelos/v1/`): aletas dentro del D acostado ($r_{tip} = \sqrt2\,R$), 10.15 kg con
+  D = 105 mm. **No cumplen la spec v2** ($r_{tip} > 1.2\,R$); se guardan como referencia.
+- **v2**: aletas dentro de 1.2 R, cuerpo abombado, tubo delgado, estudio de factibilidad.
+- **v2, revisión 2** (esta): malla por grupos, SM antes que taper, planos en lugar de `.ork` y
+  OpenRocket solo para validar a los ganadores, sin calibración.
 
 ## Estructura
 
 ```
 config/     optimizacion.yaml (única fuente de parámetros), optimizacion_6200g.yaml (variante)
-modelos/    analisis_tipo2.ork (referencia), ganador_v2_D90.ork + _perfil.csv, v1/ (diseños anteriores)
-docs/       figuras del ganador y de la frontera para este README
-scripts/    01_optimizar_malla.py, 02_verificar_openrocket.py, 03_frontera_factibilidad.py
+modelos/    analisis_tipo2.ork (geometría de referencia y plantilla de la validación), v1/ (diseños anteriores)
+docs/       planos y figuras de la frontera para este README
+scripts/    01_optimizar_malla.py, 02_validar_ganadores.py, 03_frontera_factibilidad.py, 04_planos.py
 src/sensor_tipo2/
   config.py        YAML → SI, validación, malla de cuerpos y aletas, herencia
   perfiles.py      funciones de forma de OpenRocket; perfil nariz–cuerpo–transición–tubo
   geometria.py     erosión por capas, cavidad, tramo de electrónica, masas de pared, Barrowman del cuerpo
   aletas.py        aleta sobre el tubo de cola, Barrowman por franjas, interferencia por n, flutter
   lastre.py        llenado de plomo (delantero, trasero, tope de masa, tolerancia de amarre)
-  sustituto.py     CP con guarda; calibración lineal contra OpenRocket
-  objetivo.py      f1..f4, J, tolerancias implícitas, Pareto
-  barrido.py       prefiltro, evaluación en paralelo, banderas, ranking, refinamiento
-  frontera.py      frontera de factibilidad (tope × n), casi factibles, masa_vs_tope
-  verificacion.py  puente con OpenRocket (único módulo con Java), calibración, .ork
-  exportar.py      CSV, JSON, perfil del ganador y figuras
-tests/      pytest (T1–T10: geometría, aletas, lastre, objetivo, barrido, scripts e integración con OpenRocket)
+  sustituto.py     CP del modelo propio con guarda
+  objetivo.py      f1..f4 en el orden configurable, J, tolerancias implícitas, Pareto
+  barrido.py       prefiltro, evaluación en paralelo, banderas, ranking, refinamiento (grupos A, B, C)
+  frontera.py      frontera de factibilidad (tope × n), masa vs L_tc, casi factibles
+  planos.py        planos A3 (PNG y PDF), comparativo de siluetas
+  verificacion.py  puente con OpenRocket (único módulo con Java) y validación de los ganadores
+  exportar.py      CSV, JSON, perfiles y figuras de análisis
+tests/      pytest (T1–T13: geometría, aletas, lastre, objetivo, barrido, planos, scripts y OpenRocket)
 ```

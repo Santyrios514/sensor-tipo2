@@ -255,7 +255,7 @@ def fig_masa_vs_Ltc(dl: pd.DataFrame, cfg: ConfigOpt, ruta):
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     from .exportar import REJILLA, TINTA2
-    fig, (am, asm) = plt.subplots(1, 2, figsize=(11, 4.2), constrained_layout=True)
+    fig, (am, asm) = plt.subplots(1, 2, figsize=(11, 4.5), layout="constrained")
     Ds = sorted(dl["D_mm"].unique()) if len(dl) else []
     cmap = plt.get_cmap("viridis")
     for i, D in enumerate(Ds):
@@ -278,7 +278,7 @@ def fig_masa_vs_Ltc(dl: pd.DataFrame, cfg: ConfigOpt, ruta):
     for ax in (am, asm):
         ax.grid(color=REJILLA, lw=0.6)
     if Ds:
-        am.legend(frameon=False, fontsize=8, ncol=2)
+        fig.legend(*am.get_legend_handles_labels(), loc="outside lower center", ncol=len(Ds), frameon=False, fontsize=8)
     else:
         am.text(0.5, 0.5, "sin factibles", transform=am.transAxes, ha="center", color=TINTA2)
     ruta.parent.mkdir(parents=True, exist_ok=True)
