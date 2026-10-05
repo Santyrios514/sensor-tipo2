@@ -203,6 +203,20 @@ class LimiteGeo:
     ell_geo: float
     limitante: str
     candidatos: dict[str, float]
+    x_e_a: float = -math.inf  # tramo admisible de la electrónica [x_a, x_b] (con electronica.r_min_mm)
+    x_e_b: float = math.inf
+
+
+def tramo_electronica(cav: Cavidad, r_min: float) -> tuple[float, float] | None:
+    """[x_a, x_b]: el tramo contiguo más largo donde r_i ≥ r_min (un intervalo si el perfil es
+    unimodal). None si no hay ninguno."""
+    ok = cav.r_i >= r_min
+    if not ok.any():
+        return None
+    d = np.diff(np.r_[0, ok.astype(np.int8), 0])
+    ini, fin = np.nonzero(d == 1)[0], np.nonzero(d == -1)[0] - 1
+    i = int(np.argmax(cav.x[fin] - cav.x[ini]))
+    return float(cav.x[ini[i]]), float(cav.x[fin[i]])
 
 
 def x_inicio_lastre(cfg: ConfigOpt, cav: Cavidad) -> float:
@@ -217,6 +231,18 @@ def limite_geometrico(cfg: ConfigOpt, perfil: Perfil, cav: Cavidad, x_b0: float)
     if not math.isfinite(x_b0):
         return LimiteGeo(0.0, "sin_cavidad_util", {})
     la, el = cfg.lastre, cfg.electronica
+    if el.r_min is not None:
+        # la electrónica va donde r_i ≥ r_min (nariz, cuerpo o transición); el tapón delantero la
+        # precede y puede entrar en la transición: ℓ_geo = x_b − L_e − 2 holgura − x_b0
+        tramo = tramo_electronica(cav, el.r_min)
+        if tramo is None or tramo[1] - tramo[0] < el.Le:
+            return LimiteGeo(0.0, "electronica_no_cabe", {})
+        x_a, x_b = tramo
+        cand = {"fin_cavidad": cav.x_fin - x_b0, "electronica_no_cabe": x_b - el.Le - 2 * el.holgura - x_b0}
+        if la.fmax is not None:
+            cand["fraccion_max_L"] = la.fmax * perfil.L - x_b0
+        lim = min(cand, key=cand.get)
+        return LimiteGeo(cand[lim], lim, cand, x_a, x_b)
     x_cola = perfil.x_t0 - la.margen_cola
     cand = {"fin_cavidad": cav.x_fin - x_b0, "cola": max(x_cola - x_b0, 0.0),
             "electronica_detras": x_cola - el.Le - el.holgura - x_b0}
@@ -272,12 +298,19 @@ def perfil_de(cfg: ConfigOpt, spec: CuerpoSpec) -> Perfil:
                   L_tc=spec.L_tc)
 
 
-def construir_cuerpo(cfg: ConfigOpt, spec: CuerpoSpec) -> Cuerpo:
+def motivos_previos(cfg: ConfigOpt, spec: CuerpoSpec) -> list[str]:
+    """Motivos de descarte que no necesitan la cavidad (sirven de prefiltro de la malla)."""
     cu = Cuerpo(spec=spec)
-    rest = cfg.restricciones
+    _chequeos_previos(cfg, cu)
+    return cu.motivos
+
+
+def _chequeos_previos(cfg: ConfigOpt, cu: Cuerpo):
+    spec, rest, el = cu.spec, cfg.restricciones, cfg.electronica
     R = spec.D / 2
-    cu.theta_eq = theta_eq(R, spec.k, spec.Lt)
-    cu.fineza = fineza_cola(spec.D, spec.k, spec.Lt)
+    Lt = max(spec.Lt, 0.0)
+    cu.theta_eq = theta_eq(R, spec.k, Lt)
+    cu.fineza = fineza_cola(spec.D, spec.k, Lt)
     cu.f_base_roma = fraccion_base_roma(cu.fineza, rest.fineza_sin_arrastre, rest.fineza_base_roma)
     cu.k_ef = k_efectivo(spec.k, cu.f_base_roma)
     if spec.L > rest.L_max + 1e-12:
@@ -295,11 +328,20 @@ def construir_cuerpo(cfg: ConfigOpt, spec: CuerpoSpec) -> Cuerpo:
     T_tc = espesor_total(cfg.pared["tubo_cola"])
     if not T_tc < spec.d_tc / 2:
         cu.motivos.append("pared_mayor_que_tubo_cola")
-    L_c = spec.L - spec.Ln - spec.Lt - spec.L_tc
-    if not L_c > 0:
-        cu.motivos.append("L_c_no_positivo")
-    elif rest.L_c_min_rel_cola is not None and L_c < rest.L_c_min_rel_cola * (spec.Lt + spec.L_tc) - 1e-12:
+    if spec.L_n_rel_D < rest.L_n_rel_D_min - 1e-12:
+        cu.motivos.append("nariz_bajo_minimo")
+    if not spec.L_disp > 0:
+        cu.motivos.append("L_disp_no_positivo")  # la nariz y el tubo de cola no dejan lugar a la transición
+    elif rest.L_c_min_rel_cola is not None and spec.L_c < rest.L_c_min_rel_cola * (spec.Lt + spec.L_tc) - 1e-12:
         cu.motivos.append("cuerpo_central_corto")
+    if el.r_min is None and spec.L_disp > 0 and \
+            spec.Ln + spec.L_c - cfg.lastre.margen_cola - el.Le - el.holgura <= 0:
+        cu.motivos.append("electronica_no_cabe")  # ℓ_geo ≤ −x_b0 ≤ 0 (lo mismo que daría limite_geometrico)
+
+
+def construir_cuerpo(cfg: ConfigOpt, spec: CuerpoSpec) -> Cuerpo:
+    cu = Cuerpo(spec=spec)
+    _chequeos_previos(cfg, cu)
     if cu.motivos:
         return cu
     cu.perfil = perfil_de(cfg, spec)
@@ -310,7 +352,8 @@ def construir_cuerpo(cfg: ConfigOpt, spec: CuerpoSpec) -> Cuerpo:
     cu.x_b0 = x_inicio_lastre(cfg, cu.cav)
     cu.lim = limite_geometrico(cfg, cu.perfil, cu.cav, cu.x_b0)
     if not cu.lim.ell_geo > 0:
-        cu.motivos.append("electronica_no_cabe" if cu.lim.limitante == "electronica_detras" else "sin_region_lastre")
+        cu.motivos.append("electronica_no_cabe" if cu.lim.limitante in ("electronica_detras", "electronica_no_cabe")
+                          else "sin_region_lastre")
     A_ref = math.pi * spec.D**2 / 4
     p = cu.perfil
     partes = (cuerpo_revolucion(cu.cav.x, cu.cav.r_e, 0.0, p.Ln, A_ref, "nariz"),

@@ -34,10 +34,34 @@ def test_orden_y_factibles(chica, ranking):
     r = chica.restricciones
     assert fac["SM_cal"].between(r.SM_min - 1e-6, r.SM_max).all()
     assert (fac["m_total_g"] <= (chica.m_max + chica.numerico.tol_masa_max) * 1e3).all()
-    assert not ranking.loc[ranking["r_tip_rel_R"] == 1.0, "factible"].any()
-    assert not ranking.loc[ranking["r_tip_rel_R"] == 1.6, "factible"].any()  # se sale del D acostado
-    assert (fac["D_acostado_mm"] <= fac["D_mm"] + 1e-6).all()
     assert ranking["cand_id"].is_unique
+
+
+def test_T3_factibles_cumplen_la_spec(chica, ranking):
+    """En todo candidato factible: L_n + L_c + L_t + L_tc = L, L_c ≥ 0, L_n/D ≥ mínimo,
+    r_tip ≤ 1.2 R y c_r ≥ c_r,min."""
+    fac = ranking[ranking["factible"]]
+    r = chica.restricciones
+    suma = fac["L_n_mm"] + fac["L_c_mm"] + fac["L_t_mm"] + fac["L_tc_mm"]
+    assert (abs(suma - fac["L_mm"]) < 1e-6).all() and (fac["L_c_mm"] >= 0).all()
+    assert (fac["L_n_rel_D"] >= r.L_n_rel_D_min - 1e-12).all()
+    assert (fac["r_tip_mm"] <= r.r_tip_rel_R_max * fac["D_mm"] / 2 + 1e-6).all()
+    assert (fac["c_r_mm"] >= r.c_r_min * 1e3 - 1e-6).all()
+    assert (fac["f_cil"] == 0).any()  # hay cuerpos abombados factibles
+    # banderas informativas de la spec v2
+    for col in ("frac_h_fuera_sombra", "aletas_en_estela", "tubo_esbelto", "esbeltez_tubo", "AR_aleta"):
+        assert fac[col].notna().all(), col
+    assert (fac["frac_h_fuera_sombra"].between(0, 1)).all()
+
+
+def test_prefiltro(chica):
+    """Los cuerpos y aletas imposibles se descartan antes de evaluar (spec v2 §5, paso 1)."""
+    from sensor_tipo2.barrido import grupos_malla, n_candidatos
+    total = len(chica.cuerpos()) * len(chica.aletas())
+    gr = grupos_malla(chica)
+    assert 0 < n_candidatos(gr) < total
+    assert all(a.mu_cr * c.L_tc >= chica.restricciones.c_r_min - 1e-12 for c, al in gr.items() for a in al)
+    assert all(c.d_tc >= chica.restricciones.d_tc_min - 1e-12 for c in gr)
 
 
 def test_refinamiento_no_repite(chica, ranking):
@@ -57,9 +81,9 @@ def test_config_invalida(raw):
     raw["malla"]["L_total_mm"] = [420]
     with pytest.raises(ConfigError, match="L_max"):
         cargar(raw)
-    raw2 = malla_chica(raw, d_tc_mm=[-5])
+    raw2 = malla_chica(raw, k=[1.2])
     raw2["malla"]["L_total_mm"] = [400]
-    with pytest.raises(ConfigError, match="malla.d_tc_mm"):
+    with pytest.raises(ConfigError, match="malla.k"):
         cargar(raw2)
 
 
@@ -71,5 +95,6 @@ def test_D_acostado_invalido(raw):
 
 
 def test_tamano_de_la_malla(cfg):
-    gr = grupos_malla(cfg)
-    assert len(gr) * len(next(iter(gr.values()))) == cfg.n_evaluaciones
+    from sensor_tipo2.barrido import n_candidatos
+    assert n_candidatos(grupos_malla(cfg, prefiltrar=False)) == cfg.n_evaluaciones
+    assert n_candidatos(grupos_malla(cfg)) <= int(cfg.ejecucion["max_evaluaciones"])

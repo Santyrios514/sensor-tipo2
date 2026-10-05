@@ -41,10 +41,13 @@ def main(argv=None) -> int:
         print(e, file=sys.stderr)
         return 2
     n_c, n_a = len(cfg.cuerpos()), len(cfg.aletas())
-    n = n_c * n_a
     procesos = a.procesos or cfg.procesos
     lim = int(cfg.ejecucion.get("max_evaluaciones", 2_000_000))
-    print(f"Malla: {n_c:,} cuerpos × {n_a} aletas = {n:,} evaluaciones (límite {lim:,}); {procesos} procesos.")
+    grupos = barrido.grupos_malla(cfg)
+    n = barrido.n_candidatos(grupos)
+    print(f"Malla: {n_c:,} cuerpos × {n_a} aletas = {n_c * n_a:,} candidatos.")
+    print(f"Tras descartar los geométricamente imposibles: {len(grupos):,} cuerpos, {n:,} candidatos "
+          f"(límite {lim:,}); {procesos} procesos.")
     print(f"Estimado: ~{n * 1.2e-3 / procesos / 60:.1f} min a ~1.2 ms por candidato (sin refinamiento).")
     if n > lim and not a.forzar:
         largos = sorted(((len(v), k) for k, v in cfg.malla.items() if isinstance(v, list)), reverse=True)[:3]
@@ -58,7 +61,7 @@ def main(argv=None) -> int:
         if i == total or i % max(1, total // 20) == 0:
             print(f"  {i}/{total} cuerpos · {time.time() - t0:.0f} s", flush=True)
 
-    df = barrido.optimizar(cfg, refinar=not a.sin_refinamiento, procesos=procesos, progreso=progreso)
+    df = barrido.optimizar(cfg, refinar=not a.sin_refinamiento, procesos=procesos, progreso=progreso, grupos=grupos)
     dir_d, dir_f = cfg.dir_salida(), cfg.dir_figuras()
     exportar.exportar_ranking(cfg, df, dir_d)
     fac = df[df["factible"]]

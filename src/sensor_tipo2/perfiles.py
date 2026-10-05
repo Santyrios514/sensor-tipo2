@@ -102,8 +102,9 @@ class Perfil:
 
     @property
     def x_t0(self) -> float:
-        """Inicio de la transición."""
-        return self.L - self.L_tc - self.Lt
+        """Inicio de la transición (= fin de la nariz en un cuerpo abombado, sin redondeo)."""
+        x = self.L - self.L_tc - self.Lt
+        return self.Ln if abs(x - self.Ln) < 1e-12 else x
 
     @property
     def x_tc0(self) -> float:
@@ -112,8 +113,8 @@ class Perfil:
 
     @property
     def L_c(self) -> float:
-        """Largo del cuerpo cilíndrico."""
-        return self.x_t0 - self.Ln
+        """Largo del cuerpo cilíndrico (0 en un cuerpo abombado)."""
+        return max(self.x_t0 - self.Ln, 0.0)
 
     @property
     def uniones(self) -> tuple[float, float, float]:

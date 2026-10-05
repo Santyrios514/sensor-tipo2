@@ -208,6 +208,20 @@ def fig_dibujo(cfg: ConfigOpt, det: Detalle, ruta: Path, titulo: str = "") -> Pa
     return ruta
 
 
+def perfil_ganador(cfg: ConfigOpt, fila: pd.Series) -> pd.DataFrame:
+    """Perfil del ganador para CAD/CFD: x, r_e y r_i del casco y el polígono de una aleta (mm)."""
+    c, a = specs_de_fila(fila)
+    cu = construir_cuerpo(cfg, c)
+    g, _ = construir(cfg, cu.perfil, a)
+    cav = cu.cav
+    paso = max(1, int(round(0.5e-3 / cav.dx)))  # cada 0.5 mm
+    casco = pd.DataFrame({"elemento": "casco", "x_mm": cav.x[::paso] / MM, "r_e_mm": cav.r_e[::paso] / MM,
+                          "r_i_mm": cav.r_i[::paso] / MM})
+    P = g.poligono / MM
+    aleta = pd.DataFrame({"elemento": "aleta", "x_mm": P[:, 0], "r_e_mm": P[:, 1]})
+    return pd.concat([casco, aleta], ignore_index=True)
+
+
 def fig_ganador(cfg: ConfigOpt, fila: pd.Series, dir_fig: Path, cal: Calibracion = IDENTIDAD,
                 x_CP: float | None = None, CNa: float | None = None) -> list[Path]:
     c, a = specs_de_fila(fila)
@@ -264,10 +278,23 @@ def fig_factibilidad(df: pd.DataFrame, ruta: Path):
     return ruta
 
 
-VARIABLES = [("D_mm", "D [mm]"), ("L_n_rel_D", "L_n / D"), ("L_t_rel_D", "L_t / D"), ("d_tc_mm", "d_tc [mm]"),
-             ("L_tc_mm", "L_tc [mm]"), ("mu_cr", "μ"), ("gamma_ct", "γ"), ("sigma_flecha", "σ"),
-             ("r_tip_rel_R", "r_tip / R")]
-_CUERPO = ("D_mm", "L_n_rel_D", "L_t_rel_D", "d_tc_mm", "L_tc_mm")
+_CUERPO = ("D_mm", "L_n_rel_D", "f_cil", "k", "d_tc_mm", "L_tc_mm")
+
+
+def variables(cfg: ConfigOpt) -> list[tuple[str, str]]:
+    tubo = ("k", "k = d_tc / D") if cfg.var_tubo == "k" else ("d_tc_mm", "d_tc [mm]")
+    return [("D_mm", "D [mm]"), ("L_n_rel_D", "L_n / D"), ("f_cil", "f_c"), tubo, ("L_tc_mm", "L_tc [mm]"),
+            ("mu_cr", "μ"), ("gamma_ct", "γ"), ("sigma_flecha", "σ"), ("r_tip_rel_R", "r_tip / R")]
+
+
+def _variar(cfg: ConfigOpt, c0: CuerpoSpec, var: str, v: float) -> CuerpoSpec:
+    """El cuerpo con una variable cambiada; con la malla en k, el tubo conserva su k al cambiar D."""
+    from dataclasses import replace
+    if var == "k":
+        return replace(c0, d_tc_mm=round(v * c0.D_mm, 9))
+    if var == "D_mm" and cfg.var_tubo == "k":
+        return replace(c0, D_mm=v, d_tc_mm=round(c0.k * v, 9))
+    return replace(c0, **{var: v})
 
 
 def sensibilidad(cfg: ConfigOpt, fila: pd.Series, cal: Calibracion = IDENTIDAD) -> pd.DataFrame:
@@ -275,9 +302,9 @@ def sensibilidad(cfg: ConfigOpt, fila: pd.Series, cal: Calibracion = IDENTIDAD) 
     from dataclasses import replace
     c0, a0 = specs_de_fila(fila)
     filas = []
-    for var, _ in VARIABLES:
+    for var, _ in variables(cfg):
         for v in sorted(set(float(x) for x in cfg.malla[var]) | {float(fila[var])}):
-            c = replace(c0, **{var: v}) if var in _CUERPO else c0
+            c = _variar(cfg, c0, var, v) if var in _CUERPO else c0
             a = replace(a0, **{var: v}) if var not in _CUERPO else a0
             for f in evaluar_cuerpo(cfg, c, [a], cal):
                 f["variable"], f["valor"] = var, v
@@ -287,6 +314,7 @@ def sensibilidad(cfg: ConfigOpt, fila: pd.Series, cal: Calibracion = IDENTIDAD) 
 
 def fig_sensibilidad(cfg: ConfigOpt, fila: pd.Series, ruta: Path, cal: Calibracion = IDENTIDAD):
     s = sensibilidad(cfg, fila, cal)
+    VARIABLES = variables(cfg)
     fig, axs = plt.subplots(2, len(VARIABLES), figsize=(2.0 * len(VARIABLES), 5.2), sharey="row",
                             constrained_layout=True)
     J0 = float(fila["J"])

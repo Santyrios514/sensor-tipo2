@@ -82,9 +82,11 @@ def main(argv=None) -> int:
     exportar.escribir_json({**cal.a_dict(), "historial": res.historial, "ganador": res.ganador,
                             "reapertura_ganador_dif_CP_mm": reapertura}, dir_d / "calibracion.json")
     if res.ganador is None:
-        print("\nNingún candidato verificado es factible con el CP de OpenRocket.")
-        return 1
+        print("\nSin ganador: ningún candidato verificado es factible con el CP de OpenRocket "
+              "(SM de OpenRocket fuera de [SM_min, SM_max] o sin llenado). Ver verificacion_or.csv.")
+        return 0
     g = df[df["ganador"]].iloc[0]
+    exportar.escribir_csv(exportar.perfil_ganador(cfg, g), dir_d / "ganador_perfil.csv")
     print(f"\nGanador (verificado con OpenRocket): {g['cand_id']}\n"
           f"  m_total {g['m_total_or_g']:.0f} g · D {g['D_mm']:.1f} mm · d_tc {g['d_tc_mm']:.1f} mm · "
           f"D acostado {g['D_acostado_mm']:.1f} mm · D aparente {g['D_ap_mm']:.1f} mm · SM_OR {g['SM_or_cal']:.2f} (sustituto {g['SM_cal']:.2f}) · "

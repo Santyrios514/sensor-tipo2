@@ -49,7 +49,7 @@ def test_erosion_compone():
 
 
 def test_cavidad_y_masa_del_cilindro(cfg):
-    spec = CuerpoSpec(400, 80, 1.0, "conica", None, 0.8, 32, 50)
+    spec = CuerpoSpec(400, 80, 1.0, "conica", None, 0.75, 32, 50)
     cu = construir_cuerpo(cfg, spec)
     p, cav = cu.perfil, cu.cav
     T = sum(c.t for c in cfg.pared["cuerpo"])
@@ -63,7 +63,7 @@ def test_cavidad_y_masa_del_cilindro(cfg):
 
 
 def test_barrowman_nariz_elipsoide_y_transicion_conica(cfg):
-    spec = CuerpoSpec(400, 80, 1.0, "conica", None, 0.8, 32, 50)
+    spec = CuerpoSpec(400, 80, 1.0, "conica", None, 0.75, 32, 50)
     cu = construir_cuerpo(cfg, spec)
     p = cu.perfil
     nariz, cola = cu.partes
@@ -84,14 +84,47 @@ def test_base_roma_y_k_efectivo():
     assert k_efectivo(0.4, 0.0) == pytest.approx(0.4) and k_efectivo(0.4, 1.0) == pytest.approx(1.0)
 
 
-def test_convencion_del_ork(cfg, base_ork):
-    """Cuerpo central ≥ transición + tubo de cola: el .ork la cumple (220 ≥ 115); una cola larga no."""
+def test_convencion_del_ork(base_ork):
+    """Cuerpo central ≥ transición + tubo de cola (v1, apagada por defecto en v2): el .ork la
+    cumple (220 ≥ 115); una cola larga no."""
+    from sensor_tipo2.config import cargar
+    from .conftest import raw_libre
+    raw = raw_libre()
+    raw["restricciones"]["L_c_min_rel_cola"] = 1.0
+    cfg = cargar(raw)
     assert construir_cuerpo(cfg, base_ork[0]).ok
-    larga = CuerpoSpec(400, 90, 0.3, "conica", None, 1.125, 20, 180)
+    larga = CuerpoSpec(400, 90, 0.3, "conica", None, 0.3, 20, 180)
     assert "cuerpo_central_corto" in construir_cuerpo(cfg, larga).motivos
 
 
 def test_motivos_de_cuerpo(cfg):
-    assert "d_tubo_cola_bajo_minimo" in construir_cuerpo(cfg, CuerpoSpec(400, 60, 1, "conica", None, 1, 18, 50)).motivos
-    assert "cola_base_roma" in construir_cuerpo(cfg, CuerpoSpec(400, 80, 1, "conica", None, 0.4, 32, 50)).motivos
-    assert "L_c_no_positivo" in construir_cuerpo(cfg, CuerpoSpec(400, 90, 1.5, "conica", None, 1.25, 36, 160)).motivos
+    def motivos(*a):
+        return construir_cuerpo(cfg, CuerpoSpec(*a)).motivos
+    assert "d_tubo_cola_bajo_minimo" in motivos(400, 60, 1, "conica", None, 0.5, 12, 80)
+    assert "cola_base_roma" in motivos(400, 80, 1, "conica", None, 0.9, 32, 50)
+    assert "L_disp_no_positivo" in motivos(400, 90, 1.5, "conica", None, 0.0, 36, 300)
+    assert "nariz_bajo_minimo" in motivos(400, 80, 0.75, "conica", None, 0.5, 24, 100)
+    assert "k_bajo_minimo" in motivos(400, 90, 1.0, "conica", None, 0.5, 13, 100)
+
+
+# --------------------------------------------------------------------------- T3 y cuerpo abombado (spec v2)
+
+
+def test_T3_largos_de_la_malla(cfg):
+    """L_n + L_c + L_t + L_tc = L y L_c ≥ 0 en toda la malla; L_c = f_c L_disp."""
+    for c in cfg.cuerpos():
+        assert c.Ln + c.L_c + c.Lt + c.L_tc == pytest.approx(c.L, abs=1e-9)
+        assert c.L_c >= 0
+        if c.L_disp > 0:
+            assert c.L_c == pytest.approx(c.f_cil * c.L_disp)
+
+
+def test_cuerpo_abombado(cfg):
+    """f_c = 0: la nariz y la transición se unen en el diámetro máximo; el cuerpo cilíndrico no existe."""
+    c = CuerpoSpec(400, 90, 1.0, "conica", None, 0.0, 15.75, 140)
+    cu = construir_cuerpo(cfg, c)
+    assert cu.ok and cu.perfil.L_c == 0 and cu.perfil.x_t0 == pytest.approx(cu.perfil.Ln)
+    assert cu.masas_por_estacion()["cuerpo"][0] == 0
+    x = cu.cav.x
+    assert cu.cav.r_e[np.argmin(np.abs(x - cu.perfil.Ln))] == pytest.approx(cu.perfil.R, abs=1e-6)
+    assert cu.cav.r_e.max() <= cu.perfil.R + 1e-12

@@ -18,7 +18,7 @@ import pandas as pd
 
 from .aletas import construir, envolvente, velocidad_flutter
 from .config import VARS_ALETA, AletaSpec, ConfigOpt, CuerpoSpec, cand_id
-from .geometria import construir_cuerpo
+from .geometria import construir_cuerpo, motivos_previos
 from .lastre import llenar
 from .objetivo import J, f_valores, pareto
 from .sustituto import IDENTIDAD, Calibracion, cp_sustituto
@@ -28,19 +28,20 @@ MM, G = 1e-3, 1e-3
 RANKING = [
     "puesto", "cand_id", "factible", "motivos", "J", "f1", "f2", "f3", "f4",
     # cuerpo
-    "L_mm", "D_mm", "L_n_mm", "L_c_mm", "cola_forma", "cola_parametro", "L_t_mm", "k", "d_tc_mm", "L_tc_mm",
-    "theta_eq_deg", "fineza_cola", "f_base_roma", "k_efectivo",
+    "L_mm", "D_mm", "L_n_mm", "f_cil", "L_c_mm", "cola_forma", "cola_parametro", "L_t_mm", "k", "d_tc_mm",
+    "L_tc_mm", "theta_eq_deg", "fineza_cola", "f_base_roma", "k_efectivo", "esbeltez_tubo", "tubo_esbelto",
+    "aletas_en_estela",
     # aletas
     "x_LE_mm", "c_r_mm", "c_t_mm", "x_s_mm", "h_mm", "r_tip_mm", "D_ap_mm", "D_acostado_mm",
-    "A_aleta_mm2", "m_aletas_g", "V_flutter_m_s", "flutter_margen_bajo",
+    "A_aleta_mm2", "AR_aleta", "frac_h_fuera_sombra", "m_aletas_g", "V_flutter_m_s", "flutter_margen_bajo",
     # masa, lastre y estabilidad
     "m_total_g", "m_lastre_g", "m_lastre_delantero_g", "m_lastre_trasero_g", "ell_mm", "ell_trasero_mm",
     "restriccion_activa", "x_CG_mm", "x_CP_sust_mm", "x_CP_cal_mm", "CN_alpha_total", "CN_alpha_aletas",
     "CN_alpha_cola", "SM_cal", "SM_inf_cal", "SM_max_alcanzable_cal", "tol_amarre_mm", "alpha_trim_deg",
-    "banderas_lastre", "en_pareto", "verificado_or", "x_CP_or_mm", "SM_or_cal", "J_or", "m_total_or_g",
+    "m_en_SM_max_g", "tol_en_SM_max_mm", "banderas_lastre", "en_pareto", "verificado_or", "x_CP_or_mm", "SM_or_cal", "J_or", "m_total_or_g",
     "x_CG_or_mm", "dif_masa_or_pct", "CD_or",
     # malla y otros
-    "cuerpo_id", "refinamiento", "L_n_rel_D", "L_t_rel_D", "mu_cr", "gamma_ct", "sigma_flecha", "r_tip_rel_R",
+    "cuerpo_id", "refinamiento", "L_n_rel_D", "mu_cr", "gamma_ct", "sigma_flecha", "r_tip_rel_R",
     "x_b0_mm", "ell_geo_mm", "m_casco_g", "x_electronica_mm", "costo_lastre_usd",
 ]
 
@@ -51,20 +52,25 @@ RANKING = [
 def _fila_base(c: CuerpoSpec, a: AletaSpec) -> dict:
     return {"cand_id": cand_id(c, a), "cuerpo_id": c.id, "factible": False, "motivos": "",
             "L_mm": c.L_mm, "D_mm": c.D_mm, "L_n_rel_D": c.L_n_rel_D, "L_n_mm": c.Ln / MM, "cola_forma": c.forma,
-            "cola_parametro": c.parametro, "L_t_rel_D": c.L_t_rel_D, "L_t_mm": c.Lt / MM, "k": c.k,
-            "d_tc_mm": c.d_tc_mm, "L_tc_mm": c.L_tc_mm, "L_c_mm": (c.L - c.Ln - c.Lt - c.L_tc) / MM,
+            "cola_parametro": c.parametro, "f_cil": c.f_cil, "L_t_mm": c.Lt / MM, "k": c.k,
+            "d_tc_mm": c.d_tc_mm, "L_tc_mm": c.L_tc_mm, "L_c_mm": c.L_c / MM, "esbeltez_tubo": c.L_tc_mm / c.d_tc_mm,
             "mu_cr": a.mu_cr, "gamma_ct": a.gamma_ct, "sigma_flecha": a.sigma_flecha, "r_tip_rel_R": a.r_tip_rel_R,
             "verificado_or": False, "en_pareto": False}
 
 
-def evaluar_cuerpo(cfg: ConfigOpt, c: CuerpoSpec, aletas: list[AletaSpec], cal: Calibracion = IDENTIDAD) -> list[dict]:
-    """Filas del ranking para todas las aletas de un cuerpo (factibles o no, con motivos)."""
-    cu = construir_cuerpo(cfg, c)
+def evaluar_cuerpo(cfg: ConfigOpt, c: CuerpoSpec, aletas: list[AletaSpec], cal: Calibracion = IDENTIDAD,
+                   cu=None) -> list[dict]:
+    """Filas del ranking para todas las aletas de un cuerpo (factibles o no, con motivos). `cu`
+    reutiliza un cuerpo ya construido (la geometría del cuerpo no depende de las aletas)."""
+    cu = cu if cu is not None else construir_cuerpo(cfg, c)
+    rest = cfg.restricciones
     comunes = {"theta_eq_deg": math.degrees(cu.theta_eq), "fineza_cola": cu.fineza, "f_base_roma": cu.f_base_roma,
-               "k_efectivo": cu.k_ef}
+               "k_efectivo": cu.k_ef,
+               "tubo_esbelto": rest.esbeltez_tubo_aviso is not None and c.L_tc_mm / c.d_tc_mm > rest.esbeltez_tubo_aviso,
+               "aletas_en_estela": rest.angulo_estela_aviso is not None and cu.theta_eq > rest.angulo_estela_aviso}
     if not cu.ok:
         return [{**_fila_base(c, a), **comunes, "motivos": ";".join(cu.motivos)} for a in aletas]
-    rest, vu = cfg.restricciones, cfg.vuelo
+    vu = cfg.vuelo
     R = c.D / 2
     comunes.update({"x_b0_mm": cu.x_b0 / MM, "ell_geo_mm": cu.lim.ell_geo / MM, "m_casco_g": cu.m_casco / G,
                     "CN_alpha_cola": next((p.CNa for p in cu.partes if p.nombre == "cola"), 0.0)})
@@ -74,13 +80,14 @@ def evaluar_cuerpo(cfg: ConfigOpt, c: CuerpoSpec, aletas: list[AletaSpec], cal: 
         g, motivos = construir(cfg, cu.perfil, a)
         f.update({"x_LE_mm": g.x_LE / MM, "c_r_mm": g.c_r / MM, "c_t_mm": g.c_t / MM, "x_s_mm": g.x_s / MM,
                   "h_mm": g.h / MM, "r_tip_mm": g.r_tip / MM, "D_ap_mm": 2 * max(R, g.r_tip) / MM,
+                  "frac_h_fuera_sombra": max(0.0, g.r_tip - R) / g.h if g.h > 0 else math.nan,
                   "D_acostado_mm": max(envolvente(g.r_tip, R, cfg.aleta.n, cfg.rot_guardado)) / MM})
         if motivos:
             f["motivos"] = ";".join(motivos)
             filas.append(f)
             continue
         V_f = velocidad_flutter(g, vu.altitud)
-        f.update({"A_aleta_mm2": g.area / MM**2, "m_aletas_g": g.masa / G, "V_flutter_m_s": V_f,
+        f.update({"A_aleta_mm2": g.area / MM**2, "AR_aleta": g.AR, "m_aletas_g": g.masa / G, "V_flutter_m_s": V_f,
                   "flutter_margen_bajo": bool(V_f < cfg.aleta.factor_flutter * vu.V)})
         cp, motivo = cp_sustituto(cu, g, vu.mach, cfg.numerico.n_franjas, rest.eps_CN)
         if cp is None:
@@ -171,9 +178,29 @@ def ordenar(df: pd.DataFrame) -> pd.DataFrame:
 # --------------------------------------------------------------------------- malla y refinamiento
 
 
-def grupos_malla(cfg: ConfigOpt, malla: dict | None = None) -> Grupos:
+def aleta_imposible(cfg: ConfigOpt, a: AletaSpec, L_tc: float) -> bool:
+    """Aleta descartable sin construir el cuerpo: cuerda de raíz bajo el mínimo o r_tip sobre el tope."""
+    rest = cfg.restricciones
+    return (a.mu_cr * L_tc < max(rest.c_min, rest.c_r_min) - 1e-12
+            or (rest.r_tip_rel_R_max is not None and a.r_tip_rel_R > rest.r_tip_rel_R_max + 1e-12))
+
+
+def grupos_malla(cfg: ConfigOpt, malla: dict | None = None, prefiltrar: bool = True) -> Grupos:
+    """{cuerpo: [aletas]}. Con `prefiltrar`, quita los cuerpos geométricamente imposibles
+    (motivos_previos) y las aletas imposibles por su cuerda o su r_tip, antes de evaluar."""
     aletas = cfg.aletas(malla)
-    return OrderedDict((c, list(aletas)) for c in cfg.cuerpos(malla))
+    out: OrderedDict = OrderedDict()
+    for c in cfg.cuerpos(malla):
+        if prefiltrar and motivos_previos(cfg, c):
+            continue
+        al = [a for a in aletas if not (prefiltrar and aleta_imposible(cfg, a, c.L_tc))]
+        if al:
+            out[c] = al
+    return out
+
+
+def n_candidatos(grupos: Grupos) -> int:
+    return sum(len(a) for a in grupos.values())
 
 
 def specs_de_fila(r) -> tuple[CuerpoSpec, AletaSpec]:
@@ -181,7 +208,7 @@ def specs_de_fila(r) -> tuple[CuerpoSpec, AletaSpec]:
     par = get("cola_parametro")
     par = None if par is None or (isinstance(par, float) and math.isnan(par)) else float(par)
     c = CuerpoSpec(float(get("L_mm")), float(get("D_mm")), float(get("L_n_rel_D")), str(get("cola_forma")), par,
-                   float(get("L_t_rel_D")), float(get("d_tc_mm")), float(get("L_tc_mm")))
+                   float(get("f_cil")), float(get("d_tc_mm")), float(get("L_tc_mm")))
     a = AletaSpec(float(get("mu_cr")), float(get("gamma_ct")), float(get("sigma_flecha")), float(get("r_tip_rel_R")))
     return c, a
 
@@ -208,29 +235,34 @@ def _vecinos(v: float, lista, lo: float, hi: float) -> list[float]:
     return sorted(round(x, 10) for x in out if lo - 1e-12 <= x <= hi + 1e-12)
 
 
-VARS_REFINABLES = ("D_mm", "L_n_rel_D", "L_t_rel_D", "d_tc_mm", "L_tc_mm") + VARS_ALETA
-
-
 def grupos_refinamiento(cfg: ConfigOpt, ranking: pd.DataFrame, top_K: int) -> Grupos:
     """Malla a medio paso alrededor de los top_K factibles, sin repetir candidatos. L y la forma
-    de la transición no se refinan (L ya está acotado por L_max; la forma es categórica)."""
-    m = cfg.malla
+    de la transición no se refinan (L ya está acotado por L_max; la forma es categórica). El tubo
+    se refina en la variable de la malla (k o d_tc_mm)."""
+    m, rest = cfg.malla, cfg.restricciones
+    vt = cfg.var_tubo
+    refinables = ("D_mm", "L_n_rel_D", "f_cil", vt, "L_tc_mm") + VARS_ALETA
     fac = ranking[ranking["factible"]].head(top_K)
     vistos = set(ranking["cand_id"])
-    limites = {k: (min(float(v) for v in m[k]), max(float(v) for v in m[k])) for k in VARS_REFINABLES}
-    limites["d_tc_mm"] = (max(limites["d_tc_mm"][0], cfg.restricciones.d_tc_min / MM), limites["d_tc_mm"][1])
+    limites = {k: (min(float(v) for v in m[k]), max(float(v) for v in m[k])) for k in refinables}
+    if vt == "k":
+        limites["k"] = (max(limites["k"][0], rest.k_min), limites["k"][1])
+    else:
+        limites["d_tc_mm"] = (max(limites["d_tc_mm"][0], rest.d_tc_min / MM), limites["d_tc_mm"][1])
     out: OrderedDict = OrderedDict()
     for _, r in fac.iterrows():
         c0, _ = specs_de_fila(r)
-        vals = {k: _vecinos(float(r[k]), m[k], *limites[k]) for k in VARS_REFINABLES}
-        for D, n, lt, dtc, tc in itertools.product(*(vals[v] for v in ("D_mm", "L_n_rel_D", "L_t_rel_D", "d_tc_mm",
-                                                                        "L_tc_mm"))):
-            c = CuerpoSpec(c0.L_mm, D, n, c0.forma, c0.parametro, lt, dtc, tc)
+        vals = {k: _vecinos(float(r[k]), m[k], *limites[k]) for k in refinables}
+        for D, n, fc, tubo, tc in itertools.product(*(vals[v] for v in ("D_mm", "L_n_rel_D", "f_cil", vt, "L_tc_mm"))):
+            d_tc = round(tubo * D, 9) if vt == "k" else tubo
+            c = CuerpoSpec(c0.L_mm, D, n, c0.forma, c0.parametro, fc, d_tc, tc)
+            if motivos_previos(cfg, c):
+                continue
             lista = out.setdefault(c, [])
             ya = {a.id for a in lista}
             for combo in itertools.product(*(vals[v] for v in VARS_ALETA)):
                 a = AletaSpec(*combo)
-                if a.id in ya or cand_id(c, a) in vistos:
+                if a.id in ya or cand_id(c, a) in vistos or aleta_imposible(cfg, a, c.L_tc):
                     continue
                 ya.add(a.id)
                 lista.append(a)
@@ -238,9 +270,11 @@ def grupos_refinamiento(cfg: ConfigOpt, ranking: pd.DataFrame, top_K: int) -> Gr
 
 
 def optimizar(cfg: ConfigOpt, refinar: bool = True, procesos: int | None = None,
-              cal: Calibracion = IDENTIDAD, progreso=None) -> pd.DataFrame:
-    """Barrido completo (+ refinamiento opcional) → ranking con todos los candidatos."""
-    df = evaluar(cfg, grupos_malla(cfg), cal, procesos, progreso).assign(refinamiento=False)
+              cal: Calibracion = IDENTIDAD, progreso=None, grupos: Grupos | None = None) -> pd.DataFrame:
+    """Barrido completo (+ refinamiento opcional) → ranking con los candidatos evaluados (los
+    descartados por el prefiltro no aparecen)."""
+    df = evaluar(cfg, grupos if grupos is not None else grupos_malla(cfg), cal, procesos, progreso)
+    df = df.assign(refinamiento=False)
     ref = cfg.ejecucion.get("refinamiento") or {}
     if refinar and ref.get("activar", True):
         gr = grupos_refinamiento(cfg, df, int(ref.get("top_K", 10)))

@@ -49,6 +49,7 @@ class ModeloLastre:
     rho_b: float
     fll: float
     margen_popa: float
+    x_e_min: float = -math.inf  # inicio del tramo admisible de la electrónica (electronica.r_min_mm)
 
     @property
     def ell_cavidad(self) -> float:
@@ -67,7 +68,8 @@ class ModeloLastre:
         return self.Phi1(ell) / self.V_b(ell)
 
     def x_e(self, ell):
-        return self.x_b0 + np.asarray(ell, dtype=float) + self.el.holgura
+        """x_e(ℓ) = max(x_b0 + ℓ + holgura, x_a): detrás del tapón delantero, sin salir del tramo admisible."""
+        return np.maximum(self.x_b0 + np.asarray(ell, dtype=float) + self.el.holgura, self.x_e_min)
 
     def m(self, ell):
         return self.m0 + self.m_b(ell) + self.el.me
@@ -226,7 +228,7 @@ def llenar(cfg: ConfigOpt, cu: Cuerpo, m_aletas: float, x_aletas: float, x_CP: f
     SM_min = rest.SM_min
     mod = ModeloLastre(cav=cu.cav, m0=cu.m_casco + m_aletas + cu.m_puntuales,
                        M0=cu.M_casco + m_aletas * x_aletas + cu.M_puntuales, el=cfg.electronica,
-                       x_b0=cu.x_b0, rho_b=la.rho_b, fll=la.fll, margen_popa=la.margen_popa)
+                       x_b0=cu.x_b0, rho_b=la.rho_b, fll=la.fll, margen_popa=la.margen_popa, x_e_min=cu.lim.x_e_a)
     Ll = Llenado(modelo=mod)
     ell_geo = cu.lim.ell_geo
     if not ell_geo > 0:
@@ -248,7 +250,11 @@ def llenar(cfg: ConfigOpt, cu: Cuerpo, m_aletas: float, x_aletas: float, x_CP: f
         if r.fun <= xcg[i]:
             ell_star = float(r.x)
     SM_inf = (x_CP - float(mod.xbar_b(ell_star))) / D if ell_star > 0 else math.nan
-    Ll.fila.update({"SM_max_alcanzable_cal": SM(float(mod.x_CG(ell_star))), "SM_inf_cal": SM_inf})
+    m_star, xcg_star = float(mod.m(ell_star)), float(mod.x_CG(ell_star))
+    Ll.fila.update({"SM_max_alcanzable_cal": SM(xcg_star), "SM_inf_cal": SM_inf,
+                    "m_en_SM_max_g": m_star / G,  # masa con la que se alcanza el SM máximo (diagnóstico)
+                    "tol_en_SM_max_mm": tolerancia_amarre(m_star, xcg_star, x_CP, vu.q, S_ref, CNa,
+                                                          cfg.remolque.alpha_max) / MM})
     if _n_valles(xcg, nu.tol * 1e-3) > 1:
         Ll.banderas.append("no_unimodal")
     if math.isfinite(SM_inf) and SM_inf < SM_min:

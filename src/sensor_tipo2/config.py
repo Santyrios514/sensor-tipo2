@@ -4,8 +4,13 @@ La malla se separa en dos niveles, porque todo lo que no depende de las aletas (
 volúmenes, masas del casco, CP de nariz y transición, región de lastre) se calcula una vez por
 cuerpo:
 
-- cuerpo: (L, D, L_n/D, forma de la transición, L_t/D, diámetro d_tc y largo L_tc del tubo de cola);
+- cuerpo: (L, D, L_n/D, fracción cilíndrica f_c, forma de la transición, tubo de cola k = d_tc/D o
+  d_tc, y su largo L_tc);
 - aleta:  (μ, γ, σ, r_tip/R).
+
+Con L_disp = L − L_n − L_tc, el cuerpo cilíndrico mide L_c = f_c L_disp y la transición
+L_t = (1 − f_c) L_disp: f_c = 0 es un cuerpo abombado (nariz y transición unidas en el diámetro
+máximo) y f_c → 1 un cuerpo cilíndrico con transición corta.
 
 Todo lo que sale de aquí está en SI (m, kg, rad); los mm, g y grados del YAML se convierten aquí.
 """
@@ -28,7 +33,8 @@ from .perfiles import ESTACIONES, FORMAS, PARAMETRO_DEFECTO
 MM = 1e-3
 G = 1e-3
 
-VARS_CUERPO = ("L_total_mm", "D_mm", "L_n_rel_D", "cola_forma", "L_t_rel_D", "d_tc_mm", "L_tc_mm")
+VARS_CUERPO = ("L_total_mm", "D_mm", "L_n_rel_D", "f_cil", "cola_forma", "tubo", "L_tc_mm")
+VARS_TUBO = ("k", "d_tc_mm")  # la malla da el tubo de cola relativo a D (k) o absoluto (d_tc_mm)
 VARS_ALETA = ("mu_cr", "gamma_ct", "sigma_flecha", "r_tip_rel_R")
 
 
@@ -54,15 +60,15 @@ class CuerpoSpec:
     L_n_rel_D: float
     forma: str
     parametro: float | None
-    L_t_rel_D: float
-    d_tc_mm: float  # diámetro del tubo de cola (absoluto: lo fijan el anclaje de aletas y la pared)
+    f_cil: float  # fracción cilíndrica del largo disponible L − L_n − L_tc
+    d_tc_mm: float  # diámetro del tubo de cola
     L_tc_mm: float
 
     @property
     def id(self) -> str:
         p = "" if self.parametro is None else _num(self.parametro)
         return (f"L{_num(self.L_mm)}_D{_num(self.D_mm)}_n{_num(self.L_n_rel_D)}_{self.forma}{p}"
-                f"_Lt{_num(self.L_t_rel_D)}_dtc{_num(self.d_tc_mm)}_tc{_num(self.L_tc_mm)}")
+                f"_fc{_num(self.f_cil)}_dtc{_num(self.d_tc_mm)}_tc{_num(self.L_tc_mm)}")
 
     @property
     def L(self) -> float:
@@ -77,8 +83,17 @@ class CuerpoSpec:
         return self.L_n_rel_D * self.D
 
     @property
+    def L_disp(self) -> float:
+        """Largo entre la nariz y el tubo de cola: cuerpo cilíndrico + transición."""
+        return self.L - self.Ln - self.L_tc
+
+    @property
+    def L_c(self) -> float:
+        return self.f_cil * self.L_disp
+
+    @property
     def Lt(self) -> float:
-        return self.L_t_rel_D * self.D
+        return (1.0 - self.f_cil) * self.L_disp
 
     @property
     def d_tc(self) -> float:
@@ -150,6 +165,7 @@ class Electronica:
     me: float
     holgura: float
     x_cg_rel: float | None
+    r_min: float | None = None  # radio interior mínimo que necesita; None = solo en el cuerpo cilíndrico
 
     def x_cg(self, x_e):
         return x_e + (self.x_cg_rel if self.x_cg_rel is not None else self.Le / 2.0)
@@ -204,6 +220,11 @@ class Restricciones:
     D_ap_max: float | None
     D_acostado_max_rel: float | None  # D_acostado ≤ este factor · D (1 = aletas dentro del D acostado)
     L_c_min_rel_cola: float | None  # convención del .ork: L_c ≥ este factor · (L_t + L_tc)
+    L_n_rel_D_min: float  # nariz mínima L_n/D
+    r_tip_rel_R_max: float | None  # tope duro de r_tip/R (aletas dentro del calibre)
+    c_r_min: float  # cuerda de raíz mínima absoluta [m]
+    esbeltez_tubo_aviso: float | None  # L_tc/d_tc por encima de esto → bandera tubo_esbelto
+    angulo_estela_aviso: float | None  # rad; θ_eq por encima de esto → bandera aletas_en_estela
     h_min: float
     c_min: float
     eps_CN: float
@@ -261,12 +282,21 @@ class ConfigOpt:
     raiz: Path = field(default_factory=Path.cwd)
 
     # ------------------------------------------------------------------ malla
+    @property
+    def var_tubo(self) -> str:
+        """Clave de la malla con el tubo de cola: 'k' (relativo a D) o 'd_tc_mm' (absoluto)."""
+        return var_tubo(self.malla)
+
     def cuerpos(self, malla: dict | None = None) -> list[CuerpoSpec]:
         m = malla or self.malla
-        return [CuerpoSpec(float(L), float(D), float(n), f["forma"],
-                           None if f.get("parametro") is None else float(f["parametro"]), float(lt),
-                           float(dtc), float(tc))
-                for L, D, n, f, lt, dtc, tc in itertools.product(*(m[v] for v in VARS_CUERPO))]
+        vt = var_tubo(m)
+        out = []
+        for L, D, n, fc, f, tubo, tc in itertools.product(*(m[vt if v == "tubo" else v] for v in VARS_CUERPO)):
+            d_tc = float(tubo) * float(D) if vt == "k" else float(tubo)
+            out.append(CuerpoSpec(float(L), float(D), float(n), f["forma"],
+                                  None if f.get("parametro") is None else float(f["parametro"]), float(fc),
+                                  round(d_tc, 9), float(tc)))
+        return out
 
     def aletas(self, malla: dict | None = None) -> list[AletaSpec]:
         m = malla or self.malla
@@ -292,7 +322,9 @@ class ConfigOpt:
             D_hi = max(envolvente(r_tip, R, self.aleta.n, self.rot_guardado))
         else:
             D_hi = 2 * max(R, r_tip)
-        k_lo = min(float(v) for v in self.malla["d_tc_mm"]) * MM / max(D)
+        vt = self.var_tubo
+        k_lo = (min(float(v) for v in self.malla["k"]) if vt == "k"
+                else min(float(v) for v in self.malla["d_tc_mm"]) * MM / max(D))
         return {"D_lo": min(D), "D_hi": D_hi if D_hi > min(D) else min(D) + MM, "k_lo": k_lo, "k_hi": 1.0}
 
     def resolver(self, v: str | Path) -> Path:
@@ -304,6 +336,11 @@ class ConfigOpt:
 
     def dir_figuras(self) -> Path:
         return self.resolver(self.salida.get("dir_figuras", "figs_opt"))
+
+
+def var_tubo(malla: dict) -> str:
+    claves = [k for k in VARS_TUBO if malla.get(k)]
+    return claves[0] if len(claves) == 1 else "k"
 
 
 # --------------------------------------------------------------------------- carga
@@ -419,9 +456,13 @@ def cargar(ruta: str | Path | dict, raiz: Path | None = None) -> ConfigOpt:
 
     el = raw["electronica"]
     xr = el.get("x_cg_relativo_mm")
+    rmin = el.get("r_min_mm")
     electronica = Electronica(Le=float(el["longitud_mm"]) * MM, me=float(el["masa_g"]) * G,
                               holgura=float(el.get("holgura_mm", 0.0)) * MM,
-                              x_cg_rel=None if xr is None else float(xr) * MM)
+                              x_cg_rel=None if xr is None else float(xr) * MM,
+                              r_min=None if rmin is None else float(rmin) * MM)
+    if electronica.r_min is not None and not electronica.r_min > 0:
+        errores.append("electronica.r_min_mm debe ser > 0 o null")
     if not electronica.Le > 0 or electronica.me < 0:
         errores.append("electronica: longitud_mm debe ser > 0 y masa_g ≥ 0")
     puntuales = tuple(MasaPuntual(m.get("nombre", f"p{i}"), float(m["masa_g"]) * G, float(m["x_mm"]) * MM)
@@ -479,6 +520,12 @@ def cargar(ruta: str | Path | dict, raiz: Path | None = None) -> ConfigOpt:
         D_ap_max=None if dmax is None else float(dmax) * MM,
         D_acostado_max_rel=None if r.get("D_acostado_max_rel_D") is None else float(r["D_acostado_max_rel_D"]),
         L_c_min_rel_cola=None if r.get("L_c_min_rel_cola") is None else float(r["L_c_min_rel_cola"]),
+        L_n_rel_D_min=float(r.get("L_n_rel_D_min", 0.0)),
+        r_tip_rel_R_max=None if r.get("r_tip_rel_R_max") is None else float(r["r_tip_rel_R_max"]),
+        c_r_min=float(r.get("c_r_min_mm", 0.0)) * MM,
+        esbeltez_tubo_aviso=None if r.get("esbeltez_tubo_aviso") is None else float(r["esbeltez_tubo_aviso"]),
+        angulo_estela_aviso=None if r.get("angulo_estela_aviso_deg") is None
+        else math.radians(float(r["angulo_estela_aviso_deg"])),
         h_min=float(r.get("h_min_mm", 5.0)) * MM, c_min=float(r.get("c_min_mm", 5.0)) * MM,
         eps_CN=float(r.get("eps_CN", 0.5)),
         angulo_cola_max=None if r.get("angulo_cola_max_deg") is None else math.radians(float(r["angulo_cola_max_deg"])),
@@ -489,19 +536,36 @@ def cargar(ruta: str | Path | dict, raiz: Path | None = None) -> ConfigOpt:
         errores.append("restricciones.D_acostado_max_rel_D debe ser ≥ 1 (el D acostado nunca es menor que D)")
 
     m = raw["malla"]
-    for k in VARS_CUERPO + VARS_ALETA:
+    if "L_t_rel_D" in m:
+        errores.append("malla.L_t_rel_D ya no existe: el largo de la transición sale de la fracción cilíndrica f_cil")
+    tubos = [k for k in VARS_TUBO if m.get(k)]
+    if len(tubos) != 1:
+        errores.append("malla: defina el tubo de cola con 'k' (relativo a D) o con 'd_tc_mm', uno solo")
+    obligatorias = [v for v in VARS_CUERPO if v != "tubo"] + list(VARS_ALETA)
+    for k in obligatorias:
         if not m.get(k):
             errores.append(f"malla.{k} está vacía o falta")
-    if all(m.get(k) for k in VARS_CUERPO + VARS_ALETA):
+    if len(tubos) == 1 and all(m.get(k) for k in obligatorias):
         for f in m["cola_forma"]:
             _parametro(f.get("forma"), f.get("parametro"), "malla.cola_forma", errores)
         for v in m["L_total_mm"]:
             if not 0 < float(v) * MM <= rest.L_max + 1e-12:
                 errores.append(f"malla.L_total_mm = {v} debe estar en (0, L_max = {rest.L_max / MM:g}]")
-        for key in ("D_mm", "L_n_rel_D", "L_t_rel_D", "d_tc_mm", "L_tc_mm", "r_tip_rel_R"):
+        for key in ("D_mm", "L_n_rel_D", tubos[0], "L_tc_mm", "r_tip_rel_R"):
             for v in m[key]:
                 if not float(v) > 0:
                     errores.append(f"malla.{key} = {v} debe ser > 0")
+        for v in m.get("k") or []:
+            if not float(v) < 1:
+                errores.append(f"malla.k = {v} debe ser < 1")
+        for v in m["f_cil"]:
+            if not 0 <= float(v) < 1:
+                errores.append(f"malla.f_cil = {v} fuera de [0, 1) (0 = cuerpo abombado)")
+        if rest.r_tip_rel_R_max is not None:
+            for v in m["r_tip_rel_R"]:
+                if float(v) > rest.r_tip_rel_R_max + 1e-12:
+                    errores.append(f"malla.r_tip_rel_R = {v} supera el tope restricciones.r_tip_rel_R_max = "
+                                   f"{rest.r_tip_rel_R_max:g} (restricción dura: no se relaja)")
         for key in ("mu_cr", "gamma_ct"):
             for v in m[key]:
                 if not 0 < float(v) <= 1:

@@ -1,10 +1,11 @@
 # Optimización del sensor remolcado TIPO 2 (sensor_tipo2). Única fuente de parámetros.
 # Unidades de E/S: longitud en mm, masa en g, densidad en kg/m^3, ángulos en grados.
 #
-# Topología (modelos/analisis_tipo2.ork): nariz + cuerpo cilíndrico + transición (boattail) +
-# TUBO DE COLA cilíndrico con cuatro aletas freeform sobre el tubo. Los parámetros que no son de
-# geometría (pared, electrónica, herraje, lastre, remolque, vuelo y criterios) son los de
-# dbf-sensor (config/config.yaml y config/optimizacion_10kg.yaml) y funcionan igual.
+# Topología (modelos/analisis_tipo2.ork): nariz + cuerpo (cilíndrico o abombado) + transición +
+# TUBO DE COLA con cuatro aletas freeform sobre el tubo. Spec v2 (SPEC_sensor_tipo2_v2.md): aletas
+# dentro de 1.2 R ("granada de mortero"). Los parámetros que no son de geometría (pared,
+# electrónica, herraje, lastre, remolque, vuelo y criterios) funcionan como en dbf-sensor.
+# PENDIENTE = supuesto de la spec v2 que el equipo debe confirmar.
 
 materiales:                     # densidad en kg/m^3 (los de dbf-sensor)
   MAT_PARED_EQ: 1200            # dbf-sensor lo bajó a 1200 (el .ork tipo 2 aún dice 1342)
@@ -16,9 +17,8 @@ materiales:                     # densidad en kg/m^3 (los de dbf-sensor)
 costos_usd_kg: {plomo: 4}       # aproximado, solo material
 
 masa:
-  m_max_g: 10150                # masa TOTAL objetivo del sensor: al alcanzarla, el optimizador busca el
-                                # menor D acostado. 10.15 kg = el máximo con tol_amarre_min = 1.5 mm; con
-                                # 1.2 mm se llega a 11.2 kg (D = 110). El presupuesto con MTOW 16 kg da 6200 g
+  m_max_g: 11500                # tope de masa TOTAL del sensor (spec v2 §3.6): un candidato con menos
+                                # masa es factible y compite por f1. El presupuesto con MTOW 16 kg da 6200 g
   factor_llenado: 1.0           # el lastre es plomo macizo
 
 pared:                          # capas de AFUERA hacia ADENTRO (las de dbf-sensor: ρ_eq = 1342 kg/m³)
@@ -35,6 +35,9 @@ electronica:                    # detrás del tapón de lastre delantero, como e
   masa_g: 150                   # VERIFICAR: se mantuvo la masa de la electrónica anterior
   holgura_mm: 2.0
   x_cg_relativo_mm: null        # CG propio medido desde su inicio; null = centro
+  r_min_mm: null                # PENDIENTE: radio interior mínimo que necesita la electrónica. null = como
+                                # antes (detrás del tapón delantero y antes de la transición, sin mirar el
+                                # radio); con valor puede ir en nariz, cuerpo o transición si r_i ≥ r_min
 
 masas_puntuales:
   - {nombre: herraje_remolque, masa_g: 15, x_mm: 40}
@@ -78,36 +81,38 @@ geometria_fija:
     factor_flutter: 3.0         # bandera flutter_margen_bajo si V_flutter < 3 V
 
 malla:
-  # cuerpo: L, D, nariz, forma y largo de la transición, diámetro y largo del tubo de cola.
-  # Los valores del .ork tipo 2 (nariz 0.93 D, transición elipsoide, tubo de 50 mm) quedan como
-  # referencia; el máximo de masa está en D ≈ 115 mm con nariz roma y transición cónica.
-  L_total_mm: [400]             # ≤ restricciones.L_max_mm; se pueden barrer largos menores
-  D_mm: [90, 100, 105, 110, 115, 120, 125]
-  L_n_rel_D: [0.2, 0.3, 0.5, 0.93]   # 0.93 D = la nariz del .ork; 0.2 D gana ≈ 5 % frente a 0.3 D
+  # cuerpo: L, D, nariz, fracción cilíndrica, forma de la transición, tubo de cola (k = d_tc/D) y su largo.
+  # L_disp = L − L_n − L_tc; cuerpo cilíndrico L_c = f_cil L_disp, transición L_t = (1 − f_cil) L_disp.
+  L_total_mm: [340, 370, 400]   # ≤ restricciones.L_max_mm
+  D_mm: [60, 65, 70, 75, 80, 85, 90]        # PENDIENTE: D máximo que admite la bahía
+  L_n_rel_D: [1.0, 1.25, 1.5]               # ≥ restricciones.L_n_rel_D_min
+  f_cil: [0.0, 0.25, 0.5, 0.75]             # 0 = cuerpo abombado (nariz y transición unidas)
   cola_forma:
+    - {forma: elipsoide, parametro: null}   # la del .ork (recortada)
+    - {forma: ogiva,     parametro: 1.0}
     - {forma: conica,    parametro: null}
-    - {forma: elipsoide, parametro: null}  # la del .ork (recortada)
-  L_t_rel_D: [0.7, 0.8, 0.9, 1.0]
-  d_tc_mm: [20, 22.5, 25]       # cerca del mínimo (restricciones.d_tc_min_mm)
-  L_tc_mm: [50, 70, 80, 90, 100]   # 50 mm = el .ork; lo acota restricciones.L_c_min_rel_cola
+  k: [0.15, 0.2, 0.25, 0.3, 0.4, 0.5]       # d_tc = k D (o bien d_tc_mm: [...] absoluto, no ambos)
+  L_tc_mm: [40, 60, 80, 110, 140, 170, 200]
   # aletas sobre el tubo de cola, alineadas con su extremo (offset bottom = 0)
-  mu_cr: [0.85, 1.0]            # c_r = μ L_tc
-  gamma_ct: [0.85, 1.0]         # c_t = γ c_r
-  sigma_flecha: [0.5, 1.0]      # x_s = σ (c_r − c_t): 1 = borde de salida recto (el .ork)
-  # r_tip/R ≤ √2 = 1.41421: con 4 aletas guardadas a 45° el D acostado es max(D, √2 r_tip) = D.
-  # Por debajo de ≈ 1.3 ningún cuerpo llega a SM = 1 (ver scripts/03_diagnostico_aletas.py).
-  r_tip_rel_R: [1.4, 1.41421356]
+  mu_cr: [0.7, 1.0]             # c_r = μ L_tc (y c_r ≥ restricciones.c_r_min_mm)
+  gamma_ct: [0.4, 0.7, 1.0]     # c_t = γ c_r
+  sigma_flecha: [0.0, 0.5, 1.0] # x_s = σ (c_r − c_t): 1 = borde de salida recto (el .ork)
+  r_tip_rel_R: [1.0, 1.05, 1.1, 1.15, 1.2]  # ≤ restricciones.r_tip_rel_R_max (restricción dura)
 
 restricciones:
   L_max_mm: 400                 # largo total máximo del sensor
   SM_min_cal: 1.0
   SM_max_cal: 2.0
-  k_min: 0.2
-  d_tc_min_mm: 20.0             # diámetro mínimo del tubo de cola (anclaje de aletas y pared)
+  L_n_rel_D_min: 1.0            # PENDIENTE: qué tan achatada puede ser la nariz
+  r_tip_rel_R_max: 1.2          # RESTRICCIÓN DURA: aletas dentro de 1.2 R. Nunca se relaja para que haya ganador
+  c_r_min_mm: 50                # PENDIENTE: cuerda de raíz mínima ("cuerda considerable")
+  k_min: 0.15
+  d_tc_min_mm: 15               # PENDIENTE: mínimo fabricable con pared de 1.8 mm y 4 aletas de 3 mm
+  esbeltez_tubo_aviso: 8        # L_tc/d_tc > 8 → bandera tubo_esbelto (informativa)
+  angulo_estela_aviso_deg: 12   # θ_eq > 12° → bandera aletas_en_estela (informativa)
   D_ap_max_mm: null             # tope opcional del diámetro aparente 2 max(R, r_tip)
-  D_acostado_max_rel_D: 1.0     # aletas dentro del D acostado del cuerpo (null = sin tope)
-  L_c_min_rel_cola: 1.0         # convención del .ork: cuerpo central ≥ transición + tubo de cola
-                                # (el .ork: 220 ≥ 65 + 50). null = sin convención (cola larga)
+  D_acostado_max_rel_D: null    # con r_tip ≤ 1.2 R y 4 aletas a 45° el D acostado ya es D (redundante)
+  L_c_min_rel_cola: null        # convención "cuerpo central ≥ transición + tubo" (v1); la spec v2 la quita
   h_min_mm: 5.0
   c_min_mm: 5.0
   eps_CN: 0.5                   # guarda: Σ C_Nα < eps_CN → candidato descartado
@@ -119,7 +124,7 @@ restricciones:
 
 objetivo:
   pesos: [1.0e6, 1.0e4, 1.0e2, 1.0]   # masa ≫ diámetro ≫ taper ≫ SM
-  diametro: acostado            # criterio 2: acostado (bahía, max(D, √2 r_tip)) | aparente (2 max(R, r_tip))
+  diametro: aparente            # criterio 2 (spec v2): aparente 2 max(R, r_tip) | acostado max(D, √2 r_tip)
   f4_modo: centro               # centro | max
   SM_centro_cal: 1.5
 
@@ -135,7 +140,8 @@ numerico:
   n_barrido_ell: 600
   tol_raiz_mm: 0.01
   n_franjas_aleta: 48
-  tol_masa_max_g: 0.5
+  tol_masa_max_g: 0.5           # (OpenRocket 24.12 acepta un BodyTube de largo 0: el cuerpo abombado no
+                                # necesita un largo mínimo)
 
 openrocket:
   ork_base: modelos/analisis_tipo2.ork

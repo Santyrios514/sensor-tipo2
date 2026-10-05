@@ -59,6 +59,11 @@ class GeomAleta:
         return area_centroide(self.poligono)[1]
 
     @property
+    def AR(self) -> float:
+        """Alargamiento de una aleta, h² / A_f."""
+        return self.h**2 / self.area
+
+    @property
     def masa(self) -> float:
         p = self.params
         return p.n * p.rho * p.phi * p.t * self.area
@@ -83,10 +88,12 @@ def construir(cfg: ConfigOpt, perfil: Perfil, a: AletaSpec) -> tuple[GeomAleta, 
     motivos = []
     if not g.h >= rest.h_min - 1e-12:
         motivos.append("h_menor_minimo")
-    if not c_r >= rest.c_min - 1e-12:
+    if not c_r >= max(rest.c_min, rest.c_r_min) - 1e-12:
         motivos.append("c_r_menor_minimo")
     if not c_t >= rest.c_min - 1e-12:
         motivos.append("c_t_menor_minimo")
+    if rest.r_tip_rel_R_max is not None and a.r_tip_rel_R > rest.r_tip_rel_R_max + 1e-12:
+        motivos.append("r_tip_sobre_tope")
     if rest.D_ap_max is not None and 2 * max(perfil.R, g.r_tip) > rest.D_ap_max + 1e-12:
         motivos.append("D_ap_mayor_maximo")
     if rest.D_acostado_max_rel is not None and \
@@ -104,6 +111,17 @@ def envolvente(r_tip: float, R: float, n: int, rotacion: float) -> tuple[float, 
 
 # --------------------------------------------------------------------------- Barrowman (Niskanen §3.2.2)
 
+# Interferencia aleta-aleta de OpenRocket 24.12 (FinSetCalc.calculateNonaxialForces, leído del código
+# fuente de release-24.12): factor sobre C_Nα según cuántas aletas comparten la misma estación.
+INTERFERENCIA_ALETAS = {5: 0.948, 6: 0.913, 7: 0.854, 8: 0.81}
+INTERFERENCIA_MAS_DE_8 = 0.75
+
+
+def factor_interferencia(n: int) -> float:
+    if n <= 4:
+        return 1.0
+    return INTERFERENCIA_ALETAS.get(n, INTERFERENCIA_MAS_DE_8)
+
 
 @dataclass(frozen=True)
 class CPAleta:
@@ -118,11 +136,13 @@ def barrowman(g: GeomAleta, A_ref: float, mach: float, n_franjas: int) -> CPAlet
     """CP y C_Nα del conjunto de aletas por franjas en y, como FinSetCalc de OpenRocket 24.12:
 
         C_Nα,1 = 2π s²/A_ref / (1 + sqrt(1 + (β s² / (A_f cos Γ))²))
-        C_Nα = C_Nα,1 · (n/2) · K_TB,   K_TB = 1 + r_t / (s + r_t)
+        C_Nα = C_Nα,1 · (n/2) · f_n · K_TB,   K_TB = 1 + r_t / (s + r_t)
         x_CP = x_LE + x_MAC,LE + MAC/4
 
     con s el span, A_f el área de una aleta, Γ la flecha de la línea de cuerdas medias y r_t el
-    radio del tubo de cola. Las cuerdas se cortan contra la polilínea P0 → P3 (sin el cierre).
+    radio del tubo de cola y f_n la interferencia aleta-aleta de OpenRocket (1 hasta 4 aletas, 0.913
+    con 6, 0.81 con 8). OpenRocket suma sin²(θ − φ_i) sobre las aletas, que vale n/2 para n ≥ 3
+    aletas equiespaciadas. Las cuerdas se cortan contra la polilínea P0 → P3 (sin el cierre).
     """
     P = g.puntos
     span = g.h
@@ -151,7 +171,8 @@ def barrowman(g: GeomAleta, A_ref: float, mach: float, n_franjas: int) -> CPAlet
     CNa1 = 2 * math.pi * span**2 / A_ref / (1 + math.sqrt(1 + (beta * span**2 / (g.area * cos_g)) ** 2))
     n = g.params.n
     K_TB = 1 + g.r_raiz / (span + g.r_raiz)
-    return CPAleta(CNa=CNa1 * (n / 2 if n >= 3 else 1.0) * K_TB, x_CP=g.x_LE + x_mac_le + 0.25 * mac,
+    return CPAleta(CNa=CNa1 * (n / 2 if n >= 3 else 1.0) * factor_interferencia(n) * K_TB,
+                   x_CP=g.x_LE + x_mac_le + 0.25 * mac,
                    span=span, mac=mac, cos_gamma=cos_g)
 
 

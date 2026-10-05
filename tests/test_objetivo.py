@@ -16,13 +16,15 @@ def test_masa_manda_sobre_diametro(cfg):
 
 
 def test_cotas_del_diametro(cfg, raw):
+    """Spec v2: criterio 2 = D aparente; con r_tip ≤ 1.2 R el rango es [min D, 1.2 max D]."""
     from sensor_tipo2.config import cargar
-    assert cfg.objetivo.col_diametro == "D_acostado_mm"
-    assert cfg.cotas["D_hi"] == pytest.approx(max(cfg.malla["D_mm"]) * 1e-3)  # r_tip/R ≤ √2: D acostado = D
-    raw["objetivo"]["diametro"] = "aparente"
+    assert cfg.objetivo.col_diametro == "D_ap_mm"
+    assert cfg.cotas["D_hi"] == pytest.approx(1.2 * max(cfg.malla["D_mm"]) * 1e-3)
+    assert cfg.cotas["k_lo"] == pytest.approx(min(cfg.malla["k"]))
+    raw["objetivo"]["diametro"] = "acostado"
     c2 = cargar(raw)
-    assert c2.objetivo.col_diametro == "D_ap_mm"
-    assert c2.cotas["D_hi"] == pytest.approx(max(raw["malla"]["r_tip_rel_R"]) * max(raw["malla"]["D_mm"]) * 1e-3)
+    assert c2.objetivo.col_diametro == "D_acostado_mm"
+    assert c2.cotas["D_hi"] == pytest.approx(max(raw["malla"]["D_mm"]) * 1e-3)  # √2 · 1.2 R < D
 
 
 def test_f_en_rango(cfg):
