@@ -17,7 +17,7 @@ materiales:                     # densidad en kg/m^3 (los de dbf-sensor)
 costos_usd_kg: {plomo: 4}       # aproximado, solo material
 
 masa:
-  m_max_g: 11500                # tope de masa TOTAL del sensor (spec v2 §3.6): un candidato con menos
+  m_max_g: 11500                # PENDIENTE: tope de masa TOTAL del sensor (spec v2 §3.6): un candidato con menos
                                 # masa es factible y compite por f1. El presupuesto con MTOW 16 kg da 6200 g
   factor_llenado: 1.0           # el lastre es plomo macizo
 
@@ -61,8 +61,8 @@ remolque:                       # amarre en el CG (trim estático 0), como en db
   alpha_trim_max_deg: 5.0
   alpha_lineal_max_deg: 15.0
   tol_amarre_min_mm: 1.2        # error admisible mínimo del amarre respecto al CG (null = sin mínimo).
-                                # Fija el D: con 10.15 kg, 1.5 → D 115 · 1.4 → 112.5 · 1.3 → 110 ·
-                                # 1.2 → 105 · 1.1 → 100 · 1.0 → 97.5 mm (exige ubicar el amarre con esa precisión)
+                                # PENDIENTE: la spec v2 supone 1.5 mm; se mantiene el 1.2 que pidió el equipo
+                                # (v1). Es la restricción activa: con 1.5 la masa máxima baja (ver README)
 
 envolvente:
   rotacion_guardado_deg: 45     # guardado acostado con las aletas en diagonal

@@ -196,17 +196,19 @@ def fig_masa_vs_tope(tab: pd.DataFrame, cfg: ConfigOpt, ruta):
     for n, d in tab.groupby("n_aletas"):
         ax.plot(d["tope_r_tip_rel_R"], d["m_total_max_g"].astype(float) / 1000, marker="o", lw=1.8,
                 color=colores.get(n, TINTA2), label=f"n = {n}" + ("" if n == cfg.aleta.n else " (diagnóstico)"))
+    ax.axhline(cfg.m_max / G / 1000, color=TINTA2, ls=":", lw=1.0)
+    ax.annotate(f"m_max = {cfg.m_max / G / 1000:g} kg", (tab["tope_r_tip_rel_R"].max(), cfg.m_max / G / 1000),
+                textcoords="offset points", xytext=(-4, -12), ha="right", fontsize=8, color=TINTA2)
     t = cfg.restricciones.r_tip_rel_R_max
     if t is not None:
         ax.axvline(t, color=TINTA2, ls="--", lw=1.0)
-        ax.annotate(f"tope real r_tip/R = {t:g}", (t, ax.get_ylim()[1]), textcoords="offset points",
-                    xytext=(4, -12), fontsize=8, color=TINTA2)
-    ax.axhline(cfg.m_max / G / 1000, color=TINTA2, ls=":", lw=1.0)
+        ax.annotate(f"tope real r_tip/R = {t:g}", (t, ax.get_ylim()[0]), textcoords="offset points",
+                    xytext=(4, 6), fontsize=8, color=TINTA2)
     ax.set_xlabel("tope de r_tip / R")
     ax.set_ylabel("masa total máxima factible [kg]")
     ax.set_title("Masa factible frente al tope de las aletas", loc="left", fontsize=10)
     ax.grid(color=REJILLA, lw=0.6)
-    ax.legend(frameon=False, loc="upper left")
+    ax.legend(frameon=False, loc="lower right")
     ruta.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(ruta, dpi=140)
     plt.close(fig)
