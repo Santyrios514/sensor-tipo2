@@ -41,7 +41,7 @@ def malla_chica(raw: dict, **cambios) -> dict:
         "L_total_mm": [400], "D_mm": [80, 90], "L_n_rel_D": [1.0], "f_cil": [0.0, 0.5],
         "cola_forma": [{"forma": "elipsoide", "parametro": None}, {"forma": "conica", "parametro": None}],
         "k": [0.175, 0.3], "L_tc_mm": [40, 125, 140],
-        "mu_cr": [0.7], "gamma_ct": [0.7], "sigma_flecha": [1.0], "r_tip_rel_R": [1.0, 1.1, 1.2],
+        "mu_cr": [0.7, 1.0], "gamma_ct": [0.6], "sigma_flecha": [0.5, 1.0], "r_tip_rel_R": [1.0, 1.1, 1.2],
     }
     raw["malla"].update(cambios)
     raw["ejecucion"]["refinamiento"] = {"activar": True, "top_K": 2}

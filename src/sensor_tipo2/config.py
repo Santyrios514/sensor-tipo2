@@ -234,12 +234,16 @@ class Restricciones:
     base_roma_infactible: bool = True
 
 
+CRITERIOS = ("masa", "diametro", "SM", "taper")
+
+
 @dataclass(frozen=True)
 class Objetivo:
     pesos: tuple[float, float, float, float]
-    f4_modo: str
+    f_SM_modo: str  # max (se prefiere el mayor) | centro (lo más cerca de SM_centro)
     SM_centro: float
-    diametro: str = "acostado"  # criterio 2: acostado | aparente
+    diametro: str = "acostado"  # criterio de diámetro: acostado | aparente
+    orden: tuple[str, str, str, str] = ("masa", "diametro", "SM", "taper")
 
     @property
     def col_diametro(self) -> str:
@@ -578,9 +582,14 @@ def cargar(ruta: str | Path | dict, raiz: Path | None = None) -> ConfigOpt:
     pesos = tuple(float(w) for w in ob.get("pesos", (1e6, 1e4, 1e2, 1.0)))
     if len(pesos) != 4 or not all(w > 0 for w in pesos):
         errores.append("objetivo.pesos: se esperan 4 pesos positivos")
-    modo = ob.get("f4_modo", "centro")
+    if "f4_modo" in ob and "f_SM_modo" not in ob:
+        errores.append("objetivo.f4_modo se renombró a objetivo.f_SM_modo (el SM ya no es necesariamente el 4.º)")
+    modo = ob.get("f_SM_modo", "max")
     if modo not in ("centro", "max"):
-        errores.append(f"objetivo.f4_modo '{modo}' no válido (centro | max)")
+        errores.append(f"objetivo.f_SM_modo '{modo}' no válido (max | centro)")
+    orden = tuple(ob.get("orden") or CRITERIOS)
+    if sorted(orden) != sorted(CRITERIOS):
+        errores.append(f"objetivo.orden = {list(orden)}: debe ser una permutación de {list(CRITERIOS)}")
     diam = ob.get("diametro", "acostado")
     if diam not in ("acostado", "aparente"):
         errores.append(f"objetivo.diametro '{diam}' no válido (acostado | aparente)")
@@ -600,6 +609,7 @@ def cargar(ruta: str | Path | dict, raiz: Path | None = None) -> ConfigOpt:
         vuelo=vuelo, remolque=remolque,
         rot_guardado=math.radians(float((raw.get("envolvente") or {}).get("rotacion_guardado_deg", 45.0))),
         nariz=nariz, recortada=bool(gf.get("cola_recortada", True)), aleta=aleta, malla=m, restricciones=rest,
-        objetivo=Objetivo(pesos=pesos, f4_modo=modo, SM_centro=float(ob.get("SM_centro_cal", 1.5)), diametro=diam),
+        objetivo=Objetivo(pesos=pesos, f_SM_modo=modo, SM_centro=float(ob.get("SM_centro_cal", 1.5)), diametro=diam,
+                          orden=orden),
         numerico=numerico, ejecucion=raw.get("ejecucion") or {}, openrocket=raw.get("openrocket") or {},
         salida=raw.get("salida") or {}, raiz=raiz)

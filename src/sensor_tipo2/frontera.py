@@ -6,7 +6,8 @@ factibles y cuál admite más masa. Cada cuerpo se construye una vez y se evalú
 n ≠ `geometria_fija.aletas.n` son **solo diagnóstico**: no entran al ranking ni pueden ganar.
 
 Si no hay factibles con las restricciones reales, `casi_factibles` devuelve los candidatos más
-cercanos, ordenados por su déficit de estabilidad.
+cercanos, ordenados por su déficit de estabilidad. `por_D_Ltc` resume, con las restricciones
+reales, la mejor masa y su SM para cada (D, L_tc): el compromiso entre brazo y volumen de plomo.
 """
 
 from __future__ import annotations
@@ -24,10 +25,12 @@ from .objetivo import J, f_valores
 
 MM, G = 1e-3, 1e-3
 TOPES = (1.0, 1.1, 1.2, 1.3, 1.4, 1.6)
+# columnas que definen el candidato (para reconstruirlo con barrido.specs_de_fila)
+ESPEC = ["L_mm", "L_n_rel_D", "cola_forma", "cola_parametro", "f_cil", "d_tc_mm", "mu_cr", "gamma_ct", "sigma_flecha"]
 NS = (4, 6, 8)
 COLUMNAS = ["cand_id", "n_aletas", "factible", "motivos", "m_total_g", "D_ap_mm", "D_acostado_mm", "k_efectivo",
-            "SM_cal", "tol_amarre_mm", "r_tip_rel_R", "D_mm", "SM_max_alcanzable_cal", "m_en_SM_max_g",
-            "tol_en_SM_max_mm", "restriccion_activa"]
+            "SM_cal", "tol_amarre_mm", "r_tip_rel_R", "D_mm", "L_tc_mm", "SM_max_alcanzable_cal", "m_en_SM_max_g",
+            "tol_en_SM_max_mm", "restriccion_activa", *ESPEC]
 
 
 def cfg_n(cfg: ConfigOpt, n: int) -> ConfigOpt:
@@ -65,8 +68,28 @@ def _con_J(cfg: ConfigOpt, d: pd.DataFrame) -> pd.DataFrame:
     return d.assign(J=np.where(np.isfinite(d["m_total_g"].astype(float)), J(cfg, np.nan_to_num(F)), np.nan))
 
 
-def _resumen(cfg: ConfigOpt, d: pd.DataFrame, ns, topes) -> tuple[dict, pd.DataFrame]:
-    """{(n, tope): (n_factibles, mejor fila)} y los casi factibles (restricciones reales) de d."""
+def reales(cfg: ConfigOpt, d: pd.DataFrame) -> pd.Series:
+    """Máscara de las filas evaluadas con las restricciones reales (n de la config y r_tip ≤ tope)."""
+    t = cfg.restricciones.r_tip_rel_R_max
+    m = d["n_aletas"] == cfg.aleta.n
+    return m & (d["r_tip_rel_R"] <= t + 1e-9) if t is not None else m
+
+
+def por_D_Ltc(cfg: ConfigOpt, d: pd.DataFrame) -> pd.DataFrame:
+    """Mejor candidato factible (restricciones reales) por (D, L_tc), con su número de factibles."""
+    cols = ["D_mm", "L_tc_mm", "n_factibles", "m_total_g", "SM_cal", "tol_amarre_mm", "cand_id", "J"]
+    f = d[reales(cfg, d) & d["factible"]]
+    if f.empty:
+        return pd.DataFrame(columns=cols)
+    f = f.sort_values(["m_total_g", "J"], ascending=[False, True])
+    g = f.groupby(["D_mm", "L_tc_mm"], sort=True)
+    out = g.head(1).set_index(["D_mm", "L_tc_mm"]).join(g.size().rename("n_factibles")).reset_index()
+    return out[cols]
+
+
+def _resumen(cfg: ConfigOpt, d: pd.DataFrame, ns, topes) -> tuple[dict, pd.DataFrame, pd.DataFrame]:
+    """{(n, tope): (n_factibles, mejor fila)}, los casi factibles y el mejor por (D, L_tc)
+    (restricciones reales) de d."""
     d = _con_J(cfg, d)
     d["factible"] = d["factible"].fillna(False).astype(bool)
     stats = {}
@@ -76,7 +99,7 @@ def _resumen(cfg: ConfigOpt, d: pd.DataFrame, ns, topes) -> tuple[dict, pd.DataF
             dt = dn[dn["r_tip_rel_R"] <= t + 1e-9]
             mejor = dt.sort_values(["m_total_g", "J"], ascending=[False, True]).head(1) if len(dt) else None
             stats[(n, t)] = (len(dt), mejor)
-    return stats, casi_factibles(cfg, d, N_CASI)
+    return stats, casi_factibles(cfg, d, N_CASI), por_D_Ltc(cfg, d)
 
 
 def _tarea(args):
@@ -91,9 +114,10 @@ def _tarea(args):
 
 
 def evaluar(cfg: ConfigOpt, topes=TOPES, ns=NS, gruesa: bool = False, procesos: int | None = None,
-            progreso=None) -> tuple[pd.DataFrame, pd.DataFrame, int]:
-    """(tabla por (n, tope), casi factibles, número de evaluaciones). Cada proceso resume sus
-    cuerpos (conteos, mejor candidato y los N_CASI más cercanos) para no guardar millones de filas."""
+            progreso=None) -> tuple[pd.DataFrame, pd.DataFrame, int, pd.DataFrame]:
+    """(tabla por (n, tope), casi factibles, número de evaluaciones, mejor por (D, L_tc)). Cada
+    proceso resume sus cuerpos (conteos, mejor candidato y los N_CASI más cercanos) para no guardar
+    millones de filas."""
     m = malla_frontera(cfg, topes, gruesa)
     base = cfg_n(cfg, cfg.aleta.n)
     aletas = cfg.aletas(m)
@@ -108,10 +132,12 @@ def evaluar(cfg: ConfigOpt, topes=TOPES, ns=NS, gruesa: bool = False, procesos: 
     procesos = procesos or cfg.procesos
     cuentas = {(n, t): 0 for n in ns for t in topes}
     mejores: dict = {}
-    casi = []
+    casi, ltc = [], []
 
     def acumular(res):
-        stats, cf = res
+        stats, cf, dl = res
+        if len(dl):
+            ltc.append(dl)
         for key, (cnt, fila) in stats.items():
             cuentas[key] += cnt
             if fila is not None:
@@ -148,7 +174,15 @@ def evaluar(cfg: ConfigOpt, topes=TOPES, ns=NS, gruesa: bool = False, procesos: 
     if len(cf):
         cf = cf.sort_values(["deficit_SM_cal", "deficit_tol_amarre_mm", "m_en_SM_max_g"],
                             ascending=[True, True, False]).head(N_CASI).reset_index(drop=True)
-    return pd.DataFrame(filas), cf, n_eval
+    if ltc:
+        dl = pd.concat(ltc, ignore_index=True).sort_values(["m_total_g", "J"], ascending=[False, True])
+        g = dl.groupby(["D_mm", "L_tc_mm"], sort=True)
+        dl = (g.head(1).drop(columns="n_factibles").set_index(["D_mm", "L_tc_mm"])
+              .join(g["n_factibles"].sum()).reset_index().sort_values(["D_mm", "L_tc_mm"]).reset_index(drop=True))
+        dl = dl[["D_mm", "L_tc_mm", "n_factibles", "m_total_g", "SM_cal", "tol_amarre_mm", "cand_id"]]
+    else:
+        dl = pd.DataFrame(columns=["D_mm", "L_tc_mm", "n_factibles", "m_total_g", "SM_cal", "tol_amarre_mm", "cand_id"])
+    return pd.DataFrame(filas), cf, n_eval, dl
 
 
 def _falla(motivos: str) -> str:
@@ -170,9 +204,7 @@ def casi_factibles(cfg: ConfigOpt, df: pd.DataFrame, n_max: int = 50) -> pd.Data
     """Los n_max candidatos más cercanos a ser factibles con las restricciones reales (n de la
     config y r_tip ≤ tope), ordenados por déficit de SM y luego de tolerancia de amarre."""
     rest = cfg.restricciones
-    d = df[(df["n_aletas"] == cfg.aleta.n) & ~df["factible"].fillna(False).astype(bool)]
-    if rest.r_tip_rel_R_max is not None:
-        d = d[d["r_tip_rel_R"] <= rest.r_tip_rel_R_max + 1e-9]
+    d = df[reales(cfg, df) & ~df["factible"].fillna(False).astype(bool)] if len(df) else df
     d = d[np.isfinite(pd.to_numeric(d["SM_max_alcanzable_cal"], errors="coerce").astype(float))].copy()
     if d.empty:
         return pd.DataFrame(columns=["cand_id", "restriccion_que_falla", "deficit_SM_cal", "deficit_tol_amarre_mm"])
@@ -182,7 +214,7 @@ def casi_factibles(cfg: ConfigOpt, df: pd.DataFrame, n_max: int = 50) -> pd.Data
     d["deficit_tol_amarre_mm"] = np.maximum(tol_min - d["tol_en_SM_max_mm"].astype(float).fillna(0.0), 0.0)
     d = d.sort_values(["deficit_SM_cal", "deficit_tol_amarre_mm", "m_en_SM_max_g"], ascending=[True, True, False])
     cols = ["cand_id", "restriccion_que_falla", "deficit_SM_cal", "deficit_tol_amarre_mm", "SM_max_alcanzable_cal",
-            "m_en_SM_max_g", "tol_en_SM_max_mm", "D_mm", "r_tip_rel_R", "D_ap_mm", "motivos"]
+            "m_en_SM_max_g", "tol_en_SM_max_mm", "D_mm", "r_tip_rel_R", "D_ap_mm", "motivos", "L_tc_mm", *ESPEC]
     return d[cols].head(n_max).reset_index(drop=True)
 
 
@@ -214,3 +246,42 @@ def fig_masa_vs_tope(tab: pd.DataFrame, cfg: ConfigOpt, ruta):
     plt.close(fig)
     return ruta
 
+
+
+def fig_masa_vs_Ltc(dl: pd.DataFrame, cfg: ConfigOpt, ruta):
+    """Masa factible máxima y su SM frente a L_tc, una curva por D (restricciones reales): el
+    compromiso entre el brazo de las aletas y el volumen de plomo."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from .exportar import REJILLA, TINTA2
+    fig, (am, asm) = plt.subplots(1, 2, figsize=(11, 4.2), constrained_layout=True)
+    Ds = sorted(dl["D_mm"].unique()) if len(dl) else []
+    cmap = plt.get_cmap("viridis")
+    for i, D in enumerate(Ds):
+        d = dl[dl["D_mm"] == D].sort_values("L_tc_mm")
+        col = cmap(i / max(len(Ds) - 1, 1))
+        am.plot(d["L_tc_mm"], d["m_total_g"].astype(float) / 1000, marker="o", ms=3.5, lw=1.5, color=col,
+                label=f"D = {D:g} mm")
+        asm.plot(d["L_tc_mm"], d["SM_cal"].astype(float), marker="o", ms=3.5, lw=1.5, color=col)
+    r = cfg.restricciones
+    for v in (r.SM_min, r.SM_max):
+        asm.axhline(v, color=TINTA2, ls=":", lw=1.0)
+    am.set_xlabel("largo del tubo de cola L_tc [mm]")
+    am.set_ylabel("masa total máxima factible [kg]")
+    asm.set_xlabel("largo del tubo de cola L_tc [mm]")
+    asm.set_ylabel("SM del candidato de mayor masa [cal]")
+    t = r.r_tip_rel_R_max
+    am.set_title(f"Brazo contra plomo (n = {cfg.aleta.n}" + (f", r_tip ≤ {t:g} R)" if t is not None else ")"),
+                 loc="left", fontsize=10)
+    asm.set_title("Margen estático en ese punto", loc="left", fontsize=10)
+    for ax in (am, asm):
+        ax.grid(color=REJILLA, lw=0.6)
+    if Ds:
+        am.legend(frameon=False, fontsize=8, ncol=2)
+    else:
+        am.text(0.5, 0.5, "sin factibles", transform=am.transAxes, ha="center", color=TINTA2)
+    ruta.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(ruta, dpi=140)
+    plt.close(fig)
+    return ruta

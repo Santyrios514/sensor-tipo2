@@ -60,35 +60,61 @@ def _fila(cfg, cuerpo, aleta):
 
 @pytest.mark.parametrize("cuerpo, aleta", CANDIDATOS)
 def test_candidatos_contra_openrocket(puente, cfg, cuerpo, aleta):
-    from sensor_tipo2.verificacion import verificar_candidato
+    """Criterio de validación del §7: |Δx_CP| ≤ tol_cp_mm, |Δm| ≤ 0.5 % y SM_OR ∈ [1, 2]."""
+    from sensor_tipo2.verificacion import validar_candidato
     fila = _fila(cfg, cuerpo, aleta)
     assert fila["factible"]
-    r = verificar_candidato(cfg, puente, fila)
-    assert abs(r["dx_or_sust_mm"]) < 0.5
+    r = validar_candidato(cfg, puente, fila, tol_cp=2.0 * MM, tol_masa_pct=0.5)
+    assert r["validado"], r["motivo"]
+    assert abs(r["dx_cp_mm"]) < 0.5
     assert abs(r["dif_masa_or_pct"]) < 0.5
-    assert abs(r["x_CG_or_mm"] - r["x_CG_modelo_mm"]) < 0.5
-    assert r["factible_or"] and math.isfinite(r["J_or"])
+    assert abs(r["dx_cg_mm"]) < 0.5
+
+
+def _masa_esquema_or(forma, R, L, param, t, rho, N=128):
+    """Réplica de SymmetricComponent.calculateProperties (OpenRocket 24.12): N troncos de cono con la
+    pared medida en vertical sobre la secante, r_i = r − t·hyp/l (≥ 0)."""
+    import numpy as np
+    from sensor_tipo2.perfiles import forma_or
+    x = np.linspace(0.0, L, N + 1)
+    r = forma_or(x, forma, R, L, param)
+    l = L / N
+    h = t * np.hypot(np.diff(r), l) / l
+    r1, r2 = r[:-1], r[1:]
+    i1, i2 = np.maximum(r1 - h, 0), np.maximum(r2 - h, 0)
+    return rho * np.pi / 3 * l * ((r1 * r1 + r1 * r2 + r2 * r2) - (i1 * i1 + i1 * i2 + i2 * i2)).sum()
 
 
 def test_T4_cuerpo_abombado(puente, cfg):
-    """f_c = 0 (BodyTube de largo 0): perfil < 0.05 mm y CP ≤ 0.5 mm frente a OpenRocket. La masa
-    del casco difiere ≈ 0.4 % (pared por erosión exacta frente a la aproximación de OpenRocket en
-    nariz y transición): se exige < 1 %, no el 0.1 % de la spec (ver README)."""
+    """f_c = 0 (BodyTube de largo 0): perfil < 0.05 mm, CP ≤ 0.5 mm y masas del casco < 0.1 % en
+    transición y tubo de cola. La nariz difiere ≈ 0.5 %: OpenRocket mide la pared en vertical sobre
+    la secante (t/cos θ), que en una nariz roma y curva da menos pared que el espesor normal uniforme
+    de la erosión; se comprueba que el valor de OpenRocket es exactamente su esquema replicado sobre
+    el mismo perfil (≤ 0.01 %), es decir, que la geometría coincide y la diferencia es el esquema."""
     import numpy as np
     from sensor_tipo2.config import AletaSpec, CuerpoSpec
     from sensor_tipo2.exportar import detalle
+    from sensor_tipo2.verificacion import densidad_pared
+    from sensor_tipo2.config import espesor_total
     det = detalle(cfg, CuerpoSpec(*CANDIDATOS[0][0]), AletaSpec(*CANDIDATOS[0][1]))
-    assert det.cu.perfil.L_c == 0
+    p = det.cu.perfil
+    assert p.L_c == 0
     puente.aplicar(cfg, det)
     assert float(puente.comp["cuerpo"].getLength()) == 0.0
     per = puente.perfil(400)
-    x = np.array([p[1] for p in per])
-    r = np.array([p[2] for p in per])
-    assert np.abs(r - det.cu.perfil.radio(x)).max() < 0.05 * MM
+    x = np.array([q[1] for q in per])
+    r = np.array([q[2] for q in per])
+    assert np.abs(r - p.radio(x)).max() < 0.05 * MM
     assert abs(puente.aero(cfg.vuelo.mach).x_CP - det.cp.x_CP) < 0.5 * MM
-    mas = puente.masas()
-    m_or = sum(mas.por_componente[k][0] for k in ("nariz", "cuerpo", "cola", "tubo_cola"))
-    assert det.cu.m_casco == pytest.approx(m_or, rel=0.01)
+    m_or = {k: v[0] for k, v in puente.masas().por_componente.items()}
+    m_mod = {k: v[0] for k, v in det.cu.masas_por_estacion().items()}
+    for k in ("cola", "tubo_cola"):
+        assert m_mod[k] == pytest.approx(m_or[k], rel=1e-3), k
+    capas = cfg.pared["nariz"]
+    m_rep = _masa_esquema_or(p.forma_n, p.R, p.Ln, p.param_n, espesor_total(capas),
+                             densidad_pared(det.cu.cav, capas, "nariz"))
+    assert m_or["nariz"] == pytest.approx(m_rep, rel=1e-4)
+    assert m_mod["nariz"] == pytest.approx(m_or["nariz"], rel=0.01)
 
 
 @pytest.mark.parametrize("n", [6, 8])
@@ -108,14 +134,19 @@ def test_T7_aletas_n_contra_openrocket(puente, cfg, n):
     assert abs(f.x_CP - x_or) < 0.1 * MM
 
 
-def test_T10_ganador_verificado_y_reabierto(puente, cfg, tmp_path):
-    """El mejor candidato: SM(OR) ∈ [1, 2], r_tip ≤ 1.2 R y su .ork reabierto reproduce el CP (±0.5 mm)."""
-    from sensor_tipo2.verificacion import verificar_candidato
-    fila = _fila(cfg, *CANDIDATOS[0])
-    ruta = tmp_path / "ganador.ork"
-    r = verificar_candidato(cfg, puente, fila, guardar=ruta)
+def test_validar_ganadores_sin_ork(puente, cfg, tmp_path):
+    """§7: el mejor validado es el ganador; un tol_cp_mm imposible detiene la validación sin ganador
+    (no se calibra). No se escribe ningún .ork."""
+    from dataclasses import replace
+    from sensor_tipo2.barrido import completar
+    from sensor_tipo2.verificacion import validar_ganadores
+    rk = completar(cfg, pd.DataFrame([_fila(cfg, *c) for c in CANDIDATOS[:3]]))
+    res = validar_ganadores(cfg, puente, rk, log=lambda *_: None)
+    assert res.ganador == rk.iloc[0]["cand_id"] and not res.cp_fuera_de_tolerancia
     rest = cfg.restricciones
-    assert r["factible_or"] and rest.SM_min <= r["SM_or_cal"] <= rest.SM_max
-    assert fila["r_tip_mm"] <= rest.r_tip_rel_R_max * fila["D_mm"] / 2 + 1e-9
-    puente.cargar(ruta)
-    assert abs(puente.aero(cfg.vuelo.mach).x_CP / MM - r["x_CP_or_mm"]) < 0.5
+    v = res.tabla.iloc[0]
+    assert rest.SM_min <= v["SM_or_cal"] <= rest.SM_max
+    estricta = replace(cfg, ejecucion={**cfg.ejecucion, "validacion_or": {"N_ganadores": 2, "tol_cp_mm": 1e-6}})
+    res2 = validar_ganadores(estricta, puente, rk, log=lambda *_: None)
+    assert res2.ganador is None and len(res2.cp_fuera_de_tolerancia) == 2
+    assert not list(tmp_path.rglob("*.ork"))

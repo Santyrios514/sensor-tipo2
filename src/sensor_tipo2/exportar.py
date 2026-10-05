@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import math
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -11,17 +10,15 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
-import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
-from .aletas import GeomAleta, construir, envolvente  # noqa: E402
+from .aletas import GeomAleta, construir  # noqa: E402
 from .barrido import RANKING, completar, evaluar_cuerpo, specs_de_fila  # noqa: E402
 from .config import AletaSpec, ConfigOpt, CuerpoSpec  # noqa: E402
 from .geometria import Cuerpo, construir_cuerpo  # noqa: E402
 from .lastre import Llenado, llenar  # noqa: E402
 from .objetivo import tolerancias  # noqa: E402
-from .perfiles import ESTACIONES  # noqa: E402
-from .sustituto import IDENTIDAD, Calibracion, ResultadoCP, cp_sustituto  # noqa: E402
+from .sustituto import ResultadoCP, cp_sustituto  # noqa: E402
 
 MM = 1e-3
 AZUL, NARANJA, AQUA, AMARILLO = "#2a78d6", "#eb6834", "#1baf7a", "#eda100"
@@ -43,7 +40,8 @@ def escribir_json(obj: dict, ruta: Path):
 
 def leer_ranking(ruta: Path) -> pd.DataFrame:
     df = pd.read_csv(ruta, keep_default_na=True, low_memory=False)
-    for c in ("factible", "en_pareto", "verificado_or", "flutter_margen_bajo", "refinamiento", "ganador"):
+    for c in ("factible", "en_pareto", "validado_or", "flutter_margen_bajo", "refinamiento", "ganador",
+              "tubo_esbelto", "aletas_en_estela"):
         if c in df:
             df[c] = df[c].astype(str).str.lower().isin(["true", "1"])
     df["motivos"] = df["motivos"].fillna("")
@@ -69,10 +67,10 @@ class Detalle:
     motivos: list[str]
 
 
-def detalle(cfg: ConfigOpt, c: CuerpoSpec, a: AletaSpec, cal: Calibracion = IDENTIDAD,
-            x_CP: float | None = None, CNa: float | None = None) -> Detalle:
-    """Reconstruye el candidato con todo el detalle. x_CP y CNa fuerzan el CP (p. ej. el de
-    OpenRocket) en lugar del sustituto o calibrado."""
+def detalle(cfg: ConfigOpt, c: CuerpoSpec, a: AletaSpec, x_CP: float | None = None,
+            CNa: float | None = None) -> Detalle:
+    """Reconstruye el candidato con todo el detalle. x_CP y CNa fuerzan el CP en lugar del del
+    modelo propio (diagnóstico)."""
     cu = construir_cuerpo(cfg, c)
     if not cu.ok:
         return Detalle(cu, None, None, None, cu.motivos)
@@ -82,7 +80,7 @@ def detalle(cfg: ConfigOpt, c: CuerpoSpec, a: AletaSpec, cal: Calibracion = IDEN
     cp, m = cp_sustituto(cu, g, cfg.vuelo.mach, cfg.numerico.n_franjas, cfg.restricciones.eps_CN)
     if cp is None:
         return Detalle(cu, g, None, None, [m])
-    x = float(cal.aplicar(cp.x_CP)) if x_CP is None else x_CP
+    x = cp.x_CP if x_CP is None else x_CP
     Ll = llenar(cfg, cu, g.masa, g.x_cg, x, cp.CNa if CNa is None else CNa)
     return Detalle(cu, g, cp.con_x(x), Ll, Ll.motivos)
 
@@ -113,103 +111,8 @@ def _estilo(ax):
         ax.spines[s].set_visible(False)
 
 
-def fig_dibujo(cfg: ConfigOpt, det: Detalle, ruta: Path, titulo: str = "") -> Path | None:
-    """Vista lateral (perfil, capas de pared, aletas, lastre, electrónica, CG y CP) y vista
-    frontal del sensor guardado acostado con las aletas en diagonal."""
-    if det.llenado is None or not math.isfinite(det.llenado.ell):
-        return None
-    cu, g, Ll = det.cu, det.g, det.llenado
-    cav, p = cu.cav, cu.perfil
-    x = cav.x / MM
-    fig, (al, af) = plt.subplots(1, 2, figsize=(13, 4.6), gridspec_kw={"width_ratios": [3.3, 1]},
-                                 constrained_layout=True)
-    # aletas proyectadas según su rotación de vuelo (detrás del cuerpo)
-    P = g.poligono / MM
-    for phi in g.params.rotacion + 2 * np.pi * np.arange(g.params.n) / g.params.n:
-        c = np.cos(phi)
-        if abs(c) < 1e-6:
-            continue
-        al.fill(P[:, 0], P[:, 1] * c, color=AMARILLO, alpha=0.45, lw=0, zorder=0.5)
-        al.plot(np.r_[P[:, 0], P[0, 0]], np.r_[P[:, 1], P[0, 1]] * c, color=TINTA2, lw=0.8, zorder=0.5)
-    # pared por capas
-    etiquetas = set()
-    for i, s in enumerate(ESTACIONES):
-        m = cav.estacion == i
-        fr = cav.fronteras[s]
-        for k, capa in enumerate(cfg.pared[s], start=1):
-            lab = capa.material if capa.material not in etiquetas else None
-            etiquetas.add(capa.material)
-            for sg in (1, -1):
-                al.fill_between(x[m], sg * fr[k][m] / MM, sg * fr[k - 1][m] / MM, color=CAPAS[(k - 1) % len(CAPAS)],
-                                lw=0, label=lab if sg == 1 else None)
-    al.plot(x, cav.r_e / MM, color=TINTA, lw=1.1)
-    al.plot(x, -cav.r_e / MM, color=TINTA, lw=1.1)
-    mod = Ll.modelo
-    tramos = [(cu.x_b0, cu.x_b0 + Ll.ell)]
-    if Ll.ell2 > 0:
-        a2 = float(mod.x_r0(Ll.ell))
-        tramos.append((a2, a2 + Ll.ell2))
-    for k, (t0, t1) in enumerate(tramos):
-        m = (cav.x >= t0) & (cav.x <= t1)
-        al.fill_between(x[m], -cav.r_i[m] / MM, cav.r_i[m] / MM, color=AZUL, alpha=0.7, lw=0,
-                        label="lastre de plomo" if k == 0 else None)
-    x_e = float(mod.x_e(Ll.ell))
-    m = (cav.x >= x_e) & (cav.x <= x_e + cfg.electronica.Le)
-    al.fill_between(x[m], -cav.r_i[m] / MM, cav.r_i[m] / MM, color=AQUA, alpha=0.55, lw=0, label="electrónica")
-    f = Ll.fila
-    xcg, xcp = f["x_CG_mm"], det.cp.x_CP / MM
-    al.plot(xcg, 0, "o", ms=9, mfc=SUPERFICIE, mec=TINTA, mew=1.5, zorder=5)
-    al.annotate(f"CG {xcg:.0f}", (xcg, 0), textcoords="offset points", xytext=(0, -16), ha="center", fontsize=8)
-    al.plot(xcp, 0, "D", ms=7, mfc=NARANJA, mec=TINTA, mew=0.8, zorder=5)
-    al.annotate(f"CP {xcp:.0f}", (xcp, 0), textcoords="offset points", xytext=(0, 9), ha="center", fontsize=8)
-    ymax = max(p.R, g.r_tip) / MM * 1.25
-    for xu in p.uniones:
-        al.axvline(xu / MM, color=REJILLA, lw=0.8, zorder=0)
-    al.annotate("", (0, -ymax * 0.95), (p.L / MM, -ymax * 0.95),
-                arrowprops=dict(arrowstyle="<->", color=TINTA, lw=0.9, shrinkA=0, shrinkB=0))
-    al.text(p.L / MM / 2, -ymax * 0.95, f"L = {p.L / MM:.0f} mm · D = {p.D / MM:.0f} · d_tc = {p.d_tc / MM:.1f}",
-            ha="center", va="bottom", fontsize=8, bbox=dict(fc=SUPERFICIE, ec="none", pad=0.5))
-    al.set_xlim(-8, p.L / MM + 8)
-    al.set_ylim(-ymax * 1.08, ymax)
-    al.set_aspect("equal")
-    al.grid(False)
-    al.set_xlabel("x [mm] (desde la punta)")
-    al.set_title(f"Vista lateral · aletas a {math.degrees(g.params.rotacion):.0f}°", loc="left", fontsize=9)
-    al.legend(frameon=False, loc="upper left", fontsize=7, ncol=3)
-
-    # vista frontal: guardado acostado
-    R, r_tip, t = p.R / MM, g.r_tip / MM, g.params.t / MM
-    h_g, w_g = (v / MM for v in envolvente(g.r_tip, p.R, g.params.n, cfg.rot_guardado))
-    for phi in cfg.rot_guardado + 2 * np.pi * np.arange(g.params.n) / g.params.n:
-        u = np.array([np.sin(phi), np.cos(phi)])
-        nrm = np.array([u[1], -u[0]])
-        r0 = p.r_tc / MM
-        cc = np.array([r0 * u + t / 2 * nrm, r_tip * u + t / 2 * nrm, r_tip * u - t / 2 * nrm, r0 * u - t / 2 * nrm])
-        af.fill(cc[:, 0], cc[:, 1], color=AMARILLO, alpha=0.8, ec=TINTA2, lw=0.8)
-    af.add_patch(plt.Circle((0, 0), R, fc=REJILLA, ec=TINTA, lw=1.1))
-    af.add_patch(plt.Circle((0, 0), p.r_tc / MM, fc="none", ec=TINTA2, lw=0.6, ls=":"))
-    D_ap = 2 * max(R, r_tip)
-    af.add_patch(plt.Circle((0, 0), D_ap / 2, fc="none", ec=NARANJA, lw=1.0, ls="--"))
-    af.add_patch(plt.Rectangle((-w_g / 2, -h_g / 2), w_g, h_g, fc="none", ec=AZUL, lw=1.2, ls="--"))
-    lim = max(D_ap, h_g, w_g) / 2 * 1.3
-    af.text(0, lim * 0.95, f"D aparente = {D_ap:.1f} mm", ha="center", va="top", fontsize=8, color=NARANJA)
-    af.text(0, -lim * 0.95, f"D acostado = {max(h_g, w_g):.1f} mm", ha="center", va="bottom", fontsize=8, color=AZUL)
-    af.set_xlim(-lim, lim)
-    af.set_ylim(-lim, lim)
-    af.set_aspect("equal")
-    af.axis("off")
-    af.set_title(f"Guardado acostado · aletas a {math.degrees(cfg.rot_guardado):.0f}°", loc="left", fontsize=9)
-    fig.suptitle(titulo or (f"{cu.spec.id} · masa {f['m_total_g'] / 1000:.2f} kg (plomo {f['m_lastre_g'] / 1000:.2f} kg)"
-                            f" · SM {f['SM_cal']:.2f} · tol. amarre {f['tol_amarre_mm']:.1f} mm"),
-                 x=0.01, ha="left", fontsize=10)
-    ruta.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(ruta, dpi=150)
-    plt.close(fig)
-    return ruta
-
-
-def perfil_ganador(cfg: ConfigOpt, fila: pd.Series) -> pd.DataFrame:
-    """Perfil del ganador para CAD/CFD: x, r_e y r_i del casco y el polígono de una aleta (mm)."""
+def perfil_candidato(cfg: ConfigOpt, fila: pd.Series) -> pd.DataFrame:
+    """Perfil de un candidato para CAD/CFD: x, r_e y r_i del casco y el polígono de una aleta (mm)."""
     c, a = specs_de_fila(fila)
     cu = construir_cuerpo(cfg, c)
     g, _ = construir(cfg, cu.perfil, a)
@@ -220,15 +123,6 @@ def perfil_ganador(cfg: ConfigOpt, fila: pd.Series) -> pd.DataFrame:
     P = g.poligono / MM
     aleta = pd.DataFrame({"elemento": "aleta", "x_mm": P[:, 0], "r_e_mm": P[:, 1]})
     return pd.concat([casco, aleta], ignore_index=True)
-
-
-def fig_ganador(cfg: ConfigOpt, fila: pd.Series, dir_fig: Path, cal: Calibracion = IDENTIDAD,
-                x_CP: float | None = None, CNa: float | None = None) -> list[Path]:
-    c, a = specs_de_fila(fila)
-    det = detalle(cfg, c, a, cal, x_CP, CNa)
-    r = fig_dibujo(cfg, det, dir_fig / "ganador_dibujo.png",
-                   titulo=f"{fila['cand_id']} · CP de {'OpenRocket' if x_CP is not None else 'Barrowman interno'}")
-    return [r] if r else []
 
 
 def fig_pareto(df: pd.DataFrame, ruta: Path, col: str = "D_acostado_mm"):
@@ -297,7 +191,7 @@ def _variar(cfg: ConfigOpt, c0: CuerpoSpec, var: str, v: float) -> CuerpoSpec:
     return replace(c0, **{var: v})
 
 
-def sensibilidad(cfg: ConfigOpt, fila: pd.Series, cal: Calibracion = IDENTIDAD) -> pd.DataFrame:
+def sensibilidad(cfg: ConfigOpt, fila: pd.Series) -> pd.DataFrame:
     """J y SM variando una variable a la vez (valores de la malla) alrededor de `fila`."""
     from dataclasses import replace
     c0, a0 = specs_de_fila(fila)
@@ -306,14 +200,14 @@ def sensibilidad(cfg: ConfigOpt, fila: pd.Series, cal: Calibracion = IDENTIDAD) 
         for v in sorted(set(float(x) for x in cfg.malla[var]) | {float(fila[var])}):
             c = _variar(cfg, c0, var, v) if var in _CUERPO else c0
             a = replace(a0, **{var: v}) if var not in _CUERPO else a0
-            for f in evaluar_cuerpo(cfg, c, [a], cal):
+            for f in evaluar_cuerpo(cfg, c, [a]):
                 f["variable"], f["valor"] = var, v
                 filas.append(f)
     return completar(cfg, pd.DataFrame(filas))
 
 
-def fig_sensibilidad(cfg: ConfigOpt, fila: pd.Series, ruta: Path, cal: Calibracion = IDENTIDAD):
-    s = sensibilidad(cfg, fila, cal)
+def fig_sensibilidad(cfg: ConfigOpt, fila: pd.Series, ruta: Path):
+    s = sensibilidad(cfg, fila)
     VARIABLES = variables(cfg)
     fig, axs = plt.subplots(2, len(VARIABLES), figsize=(2.0 * len(VARIABLES), 5.2), sharey="row",
                             constrained_layout=True)
@@ -335,28 +229,6 @@ def fig_sensibilidad(cfg: ConfigOpt, fila: pd.Series, ruta: Path, cal: Calibraci
     for ax in axs[1]:
         ax.axhspan(cfg.restricciones.SM_min, cfg.restricciones.SM_max, color=REJILLA, alpha=0.5, lw=0, zorder=0)
     fig.suptitle("Sensibilidad alrededor del ganador (punto hueco = infactible)", x=0.01, ha="left", fontsize=10)
-    fig.savefig(ruta, dpi=140)
-    plt.close(fig)
-    return ruta
-
-
-def fig_calibracion(ver: pd.DataFrame, cal: Calibracion, ruta: Path):
-    ver = ver[np.isfinite(ver.get("x_CP_or_mm", pd.Series(dtype=float)).astype(float))]
-    if ver.empty:
-        return None
-    fig, ax = plt.subplots(figsize=(5.6, 5), constrained_layout=True)
-    for rol, color, etq in (("verificacion", AZUL, "mejores"), ("calibracion", NARANJA, "muestra estratificada")):
-        d = ver[ver["rol"].str.contains(rol)]
-        ax.scatter(d["x_CP_sust_mm"], d["x_CP_or_mm"], s=30, color=color, edgecolor="white", linewidth=1, label=etq)
-    xs = np.linspace(ver["x_CP_sust_mm"].min(), ver["x_CP_sust_mm"].max(), 50)
-    ax.plot(xs, cal.alpha / MM + cal.beta * xs, color=TINTA, lw=1.2,
-            label=f"x_OR = {cal.alpha / MM:.2f} + {cal.beta:.4f} x_sust  (R² = {cal.R2:.4f})")
-    ax.plot(xs, xs, color=TINTA2, lw=0.8, ls="--", label="identidad")
-    ax.set_xlabel("x_CP sustituto [mm]")
-    ax.set_ylabel("x_CP OpenRocket [mm]")
-    ax.set_title(f"Calibración del CP · residuo máx. {cal.res_max / MM:.2f} mm", loc="left", fontsize=10)
-    ax.legend(frameon=False, fontsize=8, loc="upper left")
-    _estilo(ax)
     fig.savefig(ruta, dpi=140)
     plt.close(fig)
     return ruta
@@ -394,14 +266,14 @@ def fig_frontera(fr: pd.DataFrame, m_max_g: float, ruta: Path):
     return ruta
 
 
-def figuras_barrido(cfg: ConfigOpt, df: pd.DataFrame, dir_fig: Path, cal: Calibracion = IDENTIDAD) -> list[Path]:
+def figuras_barrido(cfg: ConfigOpt, df: pd.DataFrame, dir_fig: Path) -> list[Path]:
+    """Figuras de análisis (pareto, factibilidad, frontera masa–D, sensibilidad). Los dibujos de los
+    candidatos son los planos (planos.py, script 04)."""
     dir_fig.mkdir(parents=True, exist_ok=True)
     rutas = [fig_pareto(df, dir_fig / "pareto.png", cfg.objetivo.col_diametro),
              fig_factibilidad(df, dir_fig / "factibilidad.png"),
              fig_frontera(frontera(df), cfg.m_max * 1e3, dir_fig / "frontera_masa_D.png")]
     fac = df[df["factible"].astype(bool)]
     if not fac.empty:
-        g = fac.iloc[0]
-        rutas += fig_ganador(cfg, g, dir_fig, cal)
-        rutas.append(fig_sensibilidad(cfg, g, dir_fig / "sensibilidad.png", cal))
+        rutas.append(fig_sensibilidad(cfg, fac.iloc[0], dir_fig / "sensibilidad.png"))
     return [r for r in rutas if r is not None]

@@ -5,3 +5,4 @@ masa:
 salida:
   dir: data_opt_6200g
   dir_figuras: figs_opt_6200g
+  dir_planos: planos_6200g

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Script 3 (spec v2 §6): estudio de factibilidad. Se corre siempre.
 
-    python scripts/03_frontera_factibilidad.py [--config config/optimizacion.yaml] [--completa]
+    python scripts/03_frontera_factibilidad.py [--config config/optimizacion.yaml] [--gruesa]
         [--procesos N]
 
 Para cada tope de r_tip/R ∈ {1.0, 1.1, 1.2, 1.3, 1.4, 1.6} y n ∈ {4, 6, 8} aletas: número de
@@ -10,8 +10,8 @@ tope > restricciones.r_tip_rel_R_max o n ≠ geometria_fija.aletas.n son solo di
 Por defecto usa toda la malla de la configuración (reutiliza la caché de cuerpos para las tres n);
 --gruesa usa un valor de cada dos en D, tubo y L_tc, para una corrida rápida.
 
-Salidas: frontera_factibilidad.csv, casi_factibles.csv (si no hay factibles con las restricciones
-reales) y masa_vs_tope.png.
+Salidas: frontera_factibilidad.csv, masa_vs_Ltc.csv, casi_factibles.csv (si no hay factibles con
+las restricciones reales), masa_vs_tope.png y masa_vs_Ltc.png. Solo el modelo propio (sin JVM).
 """
 
 from __future__ import annotations
@@ -53,10 +53,12 @@ def main(argv=None) -> int:
     m = frontera.malla_frontera(cfg, gruesa=a.gruesa)
     print(f"Malla {'gruesa' if a.gruesa else 'completa'}: D {m['D_mm']}, {cfg.var_tubo} {m[cfg.var_tubo]}, "
           f"L_tc {m['L_tc_mm']}, r_tip/R {m['r_tip_rel_R']}; n = {list(frontera.NS)}")
-    tab, cf, n_eval = frontera.evaluar(cfg, gruesa=a.gruesa, procesos=a.procesos, progreso=progreso)
+    tab, cf, n_eval, dl = frontera.evaluar(cfg, gruesa=a.gruesa, procesos=a.procesos, progreso=progreso)
     dir_d, dir_f = cfg.dir_salida(), cfg.dir_figuras()
     escribir_csv(tab, dir_d / "frontera_factibilidad.csv")
+    escribir_csv(dl, dir_d / "masa_vs_Ltc.csv")
     frontera.fig_masa_vs_tope(tab, cfg, dir_f / "masa_vs_tope.png")
+    frontera.fig_masa_vs_Ltc(dl, cfg, dir_f / "masa_vs_Ltc.png")
     cols = ["n_aletas", "tope_r_tip_rel_R", "n_factibles", "m_total_max_g", "D_ap_mm", "SM_cal", "tol_amarre_mm",
             "solo_diagnostico"]
     print(f"\n{n_eval:,} evaluaciones · {time.time() - t0:.0f} s\n")

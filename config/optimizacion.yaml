@@ -81,23 +81,26 @@ geometria_fija:
     factor_flutter: 3.0         # bandera flutter_margen_bajo si V_flutter < 3 V
 
 malla:
-  # cuerpo: L, D, nariz, fracción cilíndrica, forma de la transición, tubo de cola (k = d_tc/D) y su largo.
-  # L_disp = L − L_n − L_tc; cuerpo cilíndrico L_c = f_cil L_disp, transición L_t = (1 − f_cil) L_disp.
-  L_total_mm: [340, 370, 400]   # ≤ restricciones.L_max_mm
+  # Spec v2 rev. 2 §3.1: resolución según el criterio al que sirve cada variable
+  # (A masa y B diámetro aparente finas, C estabilidad media, D ajuste fino mínima).
+  # cuerpo: L_disp = L − L_n − L_tc; cuerpo cilíndrico L_c = f_cil L_disp, transición L_t = (1 − f_cil) L_disp.
+  L_total_mm: [400]             # fijo: más largo siempre da más masa y más brazo (lista configurable)
+  # A · masa
   D_mm: [60, 65, 70, 75, 80, 85, 90]        # PENDIENTE: D máximo que admite la bahía
-  L_n_rel_D: [1.0, 1.25, 1.5]               # ≥ restricciones.L_n_rel_D_min
+  L_tc_mm: [40, 60, 80, 100, 120, 140, 160, 180, 200]   # compromiso central: brazo contra plomo
   f_cil: [0.0, 0.25, 0.5, 0.75]             # 0 = cuerpo abombado (nariz y transición unidas)
+  L_n_rel_D: [1.0, 1.25]                    # ≥ restricciones.L_n_rel_D_min
+  # B · diámetro aparente
+  r_tip_rel_R: [1.0, 1.05, 1.1, 1.15, 1.2]  # ≤ restricciones.r_tip_rel_R_max (restricción dura)
+  # C · estabilidad
+  k: [0.15, 0.2, 0.25, 0.3, 0.4]            # d_tc = k D (o bien d_tc_mm: [...] absoluto, no ambos)
+  # D · ajuste fino (aletas sobre el tubo de cola, alineadas con su extremo, offset bottom = 0)
+  mu_cr: [0.7, 1.0]             # c_r = μ L_tc (y c_r ≥ restricciones.c_r_min_mm)
+  gamma_ct: [0.6]               # c_t = γ c_r
+  sigma_flecha: [0.5, 1.0]      # x_s = σ (c_r − c_t): 1 = borde de salida recto (el .ork)
   cola_forma:
     - {forma: elipsoide, parametro: null}   # la del .ork (recortada)
-    - {forma: ogiva,     parametro: 1.0}
     - {forma: conica,    parametro: null}
-  k: [0.15, 0.2, 0.25, 0.3, 0.4, 0.5]       # d_tc = k D (o bien d_tc_mm: [...] absoluto, no ambos)
-  L_tc_mm: [40, 60, 80, 110, 140, 170, 200]
-  # aletas sobre el tubo de cola, alineadas con su extremo (offset bottom = 0)
-  mu_cr: [0.7, 1.0]             # c_r = μ L_tc (y c_r ≥ restricciones.c_r_min_mm)
-  gamma_ct: [0.4, 0.7, 1.0]     # c_t = γ c_r
-  sigma_flecha: [0.0, 0.5, 1.0] # x_s = σ (c_r − c_t): 1 = borde de salida recto (el .ork)
-  r_tip_rel_R: [1.0, 1.05, 1.1, 1.15, 1.2]  # ≤ restricciones.r_tip_rel_R_max (restricción dura)
 
 restricciones:
   L_max_mm: 400                 # largo total máximo del sensor
@@ -123,17 +126,18 @@ restricciones:
     infactible: true
 
 objetivo:
-  pesos: [1.0e6, 1.0e4, 1.0e2, 1.0]   # masa ≫ diámetro ≫ taper ≫ SM
-  diametro: aparente            # criterio 2 (spec v2): aparente 2 max(R, r_tip) | acostado max(D, √2 r_tip)
-  f4_modo: centro               # centro | max
-  SM_centro_cal: 1.5
+  orden: [masa, diametro, SM, taper]  # spec v2 rev. 2; el de dbf-sensor es [masa, diametro, taper, SM]
+  pesos: [1.0e6, 1.0e4, 1.0e2, 1.0]   # en el orden de `orden`
+  diametro: aparente            # criterio de diámetro: aparente 2 max(R, r_tip) | acostado max(D, √2 r_tip)
+  f_SM_modo: max                # max: se prefiere el SM más alto | centro: lo más cerca de SM_centro_cal
+  SM_centro_cal: 1.5            # solo con f_SM_modo: centro
 
 ejecucion:
   max_evaluaciones: 2000000
   procesos: auto
-  refinamiento: {activar: true, top_K: 10}
-  verificacion_or: {N_verif: 20, N_cal: 30, tol_cp_mm: 2.0, max_iter_calibracion: 3}
-  semilla: 12345
+  refinamiento: {activar: true, top_K: 10}   # medio paso en las variables de los grupos A, B y C
+  validacion_or: {N_ganadores: 5, tol_cp_mm: 2.0, tol_masa_pct: 0.5}
+  semilla: 12345                # el barrido es determinista; se conserva por si se agrega muestreo
 
 numerico:
   dx_mm: 0.1
@@ -150,4 +154,5 @@ openrocket:
 salida:
   dir: data_opt
   dir_figuras: figs_opt
-  exportar_ork_top: 5
+  dir_planos: planos
+  N_planos: 5                   # planos de los N mejores factibles (no se exporta ningún .ork)

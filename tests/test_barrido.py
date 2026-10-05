@@ -71,6 +71,18 @@ def test_refinamiento_no_repite(chica, ranking):
     assert ids and not ids & set(base["cand_id"])
 
 
+def test_refinamiento_solo_grupos_A_B_C(chica, ranking):
+    """Spec v2 rev. 2 §5: el refinamiento no toca μ, γ, σ, la forma de la transición ni L."""
+    base = ranking[~ranking["refinamiento"]]
+    semillas = base[base["factible"]].head(2)
+    fijos = {(r.mu_cr, r.gamma_ct, r.sigma_flecha, r.cola_forma, r.L_mm) for r in semillas.itertuples()}
+    gr = grupos_refinamiento(chica, base, 2)
+    for c, al in gr.items():
+        for a in al:
+            assert (a.mu_cr, a.gamma_ct, a.sigma_flecha, c.forma, c.L_mm) in fijos
+            assert a.r_tip_rel_R <= chica.restricciones.r_tip_rel_R_max + 1e-12
+
+
 def test_specs_de_fila_ida_y_vuelta(chica, ranking):
     for _, f in ranking.head(5).iterrows():
         c, a = specs_de_fila(f)
