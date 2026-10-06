@@ -89,3 +89,34 @@ def test_envolvente_y_flutter(cfg_libre, base_ork):
     g1, _ = construir(cfg, p, AletaSpec(1.0, 0.7, 1.0, 2.0))
     V = velocidad_flutter(g1, cfg.vuelo.altitud)
     assert V > 3 * cfg.vuelo.V
+
+
+# --------------------------------------------------------------------------- altura aparente (caja mínima)
+
+
+@pytest.mark.parametrize("n, r_tip, phi_vuelo", [(4, 0.060, math.radians(45)), (4, 0.100, 0.0), (3, 0.080, 0.0),
+                                                 (6, 0.070, 0.0), (8, 0.060, math.radians(22.5))])
+def test_altura_aparente_es_el_minimo_del_giro(n, r_tip, phi_vuelo):
+    """H_ap = min_φ (y_max − y_min), con el espesor real de las aletas: ningún giro de una búsqueda
+    exhaustiva (0.01°) da una caja más baja, y el giro reportado reproduce H_ap."""
+    import numpy as np
+    from sensor_tipo2.aletas import altura_aparente, extremos_seccion
+    R, r_tc, t = 0.050, 0.0075, 0.003
+    caja = altura_aparente(R, r_tc, r_tip, t, n, phi_vuelo, 720)
+    E = extremos_seccion(R, r_tc, r_tip, t, n, np.radians(np.arange(0.0, 360.0 / n, 0.01)))
+    fuerza_bruta = float((E[:, 3] - E[:, 2]).min())
+    assert caja.alto <= fuerza_bruta + 1e-9
+    assert caja.alto >= 2 * R - 1e-12
+    e = extremos_seccion(R, r_tc, r_tip, t, n, caja.phi)
+    assert e[3] - e[2] == pytest.approx(caja.alto, abs=1e-12)
+    assert e[1] - e[0] == pytest.approx(caja.ancho, abs=1e-12)
+
+
+def test_altura_aparente_4_aletas():
+    """4 aletas a 45°: H_ap = max(2R, √2 (r_tip + t/2)); con r_tip ≤ 1.2 R las aletas quedan en la
+    sombra del cuerpo y la caja mínima es D × D (el ganador: 100 mm con r_tip = 60 mm)."""
+    from sensor_tipo2.aletas import altura_aparente
+    R, r_tc, t = 0.050, 0.0075, 0.003
+    for r_tip in (0.050, 0.060, 0.090, 0.120):
+        caja = altura_aparente(R, r_tc, r_tip, t, 4, math.radians(45), 720)
+        assert caja.alto == pytest.approx(max(2 * R, math.sqrt(2) * (r_tip + t / 2)), abs=1e-9)

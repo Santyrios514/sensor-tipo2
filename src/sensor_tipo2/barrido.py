@@ -16,7 +16,7 @@ from collections import OrderedDict
 import numpy as np
 import pandas as pd
 
-from .aletas import construir, envolvente, velocidad_flutter
+from .aletas import altura_aparente, construir, envolvente, velocidad_flutter
 from .config import AletaSpec, ConfigOpt, CuerpoSpec, cand_id
 from .geometria import construir_cuerpo, motivos_previos
 from .lastre import llenar
@@ -32,7 +32,8 @@ RANKING = [
     "L_tc_mm", "theta_eq_deg", "fineza_cola", "f_base_roma", "k_efectivo", "esbeltez_tubo", "tubo_esbelto",
     "aletas_en_estela",
     # aletas
-    "x_LE_mm", "c_r_mm", "c_t_mm", "x_s_mm", "h_mm", "r_tip_mm", "D_ap_mm", "D_acostado_mm",
+    "x_LE_mm", "c_r_mm", "c_t_mm", "x_s_mm", "h_mm", "r_tip_mm", "D_ap_mm", "H_ap_mm", "ancho_caja_mm",
+    "giro_caja_deg", "D_acostado_mm",
     "A_aleta_mm2", "AR_aleta", "frac_h_fuera_sombra", "m_aletas_g", "V_flutter_m_s", "flutter_margen_bajo",
     # masa, lastre y estabilidad
     "m_total_g", "m_lastre_g", "m_lastre_delantero_g", "m_lastre_trasero_g", "ell_mm", "ell_trasero_mm",
@@ -80,6 +81,9 @@ def evaluar_cuerpo(cfg: ConfigOpt, c: CuerpoSpec, aletas: list[AletaSpec], cu=No
                   "h_mm": g.h / MM, "r_tip_mm": g.r_tip / MM, "D_ap_mm": 2 * max(R, g.r_tip) / MM,
                   "frac_h_fuera_sombra": max(0.0, g.r_tip - R) / g.h if g.h > 0 else math.nan,
                   "D_acostado_mm": max(envolvente(g.r_tip, R, cfg.aleta.n, cfg.rot_guardado)) / MM})
+        caja = altura_aparente(R, c.d_tc / 2, g.r_tip, g.params.t, g.params.n, g.params.rotacion,
+                               cfg.numerico.n_rotacion_caja)
+        f.update({"H_ap_mm": caja.alto / MM, "ancho_caja_mm": caja.ancho / MM, "giro_caja_deg": math.degrees(caja.phi)})
         if motivos:
             f["motivos"] = ";".join(motivos)
             filas.append(f)

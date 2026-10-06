@@ -17,10 +17,10 @@ mínima de **1.2 mm**, V = 30 m/s a 1495 m (ISA).
 
 ## ¿Es viable?
 
-1. **Sí.** Con 4 aletas, $r_{tip} \le 1.2\,R$, $L = 400$ mm y D hasta 100 mm hay **16 171
+1. **Sí.** Con 4 aletas, $r_{tip} \le 1.2\,R$, $L = 400$ mm y D hasta 100 mm hay **16 096
    candidatos factibles** (de 62 108 evaluados); los 5 mejores validan con OpenRocket (ΔCP ≤ 0.06 mm,
    Δm ≤ 0.005 %).
-2. Admite como máximo **8.03 kg**, el 70 % de los 11.5 kg, con D = 100 mm (otra vez el máximo de la
+2. Admite como máximo **8.02 kg**, el 70 % de los 11.5 kg, con D = 100 mm (otra vez el máximo de la
    malla) y D aparente de 120 mm; en toda la frontera la limita la tolerancia del amarre.
 3. Para llegar a 11.5 kg, la concesión mínima es **8 aletas, sin pasar de $r_{tip} = 1.2\,R$** (o 6
    aletas a 1.3 R); con 4 aletas hace falta 1.6 R. El largo ya está en su tope; cada 10 mm de D
@@ -38,13 +38,14 @@ Plano en A3, escala 1:2: [`docs/planos/rank01_…_r1.2.pdf`](docs/planos/rank01_
 | Cuerpo | **abombado** ($f_c = 0$, $L_c = 0$): nariz elipsoide de 100 mm + transición cónica de 140 mm |
 | Tubo de cola | Ø 15 × 160 mm ($k = 0.15$: en los mínimos `k_min` y `d_tc_min_mm`) |
 | Aletas (4, Onyx 3 mm) | $c_r$ 112, $c_t$ 67.2, flecha 44.8, $h$ 52.5 mm; $r_{tip}$ = 60 mm = **1.2 R**; AR 0.59 |
-| D / D aparente | 100 / **120 mm** |
-| Masa total | **8026 g**: plomo 7652 g (3228 delante de la electrónica + 4425 detrás), casco 141 g, aletas 68 g, electrónica 150 g, herraje 15 g |
+| D / D aparente / altura aparente | 100 / **120** / **100 mm** (caja mínima 400 × 100 × 100 mm) |
+| Masa total | **8022 g**: plomo 7649 g (3228 delante de la electrónica + 4421 detrás), casco 141 g, aletas 68 g, electrónica 150 g, herraje 15 g |
+| Herraje de remolque | **en el CG** (x = 99.98 mm), que es donde va el amarre: suma masa pero no mueve el CG |
 | Electrónica | de x = 75 a 95 mm, dentro de la nariz ($r_i \ge 46$ mm) |
-| $x_{CG}$ modelo / OpenRocket | 99.92 / 99.92 mm |
+| $x_{CG}$ modelo / OpenRocket | 99.98 / 99.99 mm |
 | $x_{CP}$ modelo / OpenRocket | 224.82 / 224.76 mm |
 | $C_{N\alpha}$ | 2.316 = nariz 2.000 + transición −1.955 + aletas 2.271 (igual en OpenRocket) |
-| SM modelo / OpenRocket | 1.249 / 1.248 cal |
+| SM modelo / OpenRocket | 1.248 / 1.248 cal |
 | Tolerancia de amarre | **1.20 mm**: es la restricción que limita la masa |
 | $\theta_{eq}$ de la transición · $C_D$ (OpenRocket) | 16.9° · 0.207 |
 | Banderas | `aletas_en_estela` (16.9° > 12°), `tubo_esbelto` ($L_{tc}/d_{tc}$ = 10.7 > 8); flutter 515 m/s |
@@ -56,13 +57,13 @@ transición más empinada. El ganador lleva el cono a 16.9°, y el mejor candida
 
 | $\theta_{eq}$ máximo | 11° | **12°** | 13° | 14° | 15° | 16° | sin límite |
 |---|---|---|---|---|---|---|---|
-| masa [kg] | 7.31 | **7.50** | 7.69 | 7.83 | 7.99 | 8.02 | 8.03 |
+| masa [kg] | 7.31 | **7.49** | 7.69 | 7.83 | 7.99 | 8.02 | 8.02 |
 | $L_{tc}$ [mm] · $L_{tc}/d_{tc}$ | 80 · 5.3 | 100 · 6.7 | 110 · 7.3 | 120 · 8.0 | 140 · 9.3 | 150 · 10.0 | 160 · 10.7 |
 
 **Alternativa sin banderas (recomendada para la validación independiente):** puesto 137,
 `L400_D100_n1_conica_fc0_dtc15_tc100_m1_g0.6_s1_r1.2`. Tiene el mismo cuerpo con el tubo de cola
 de 100 mm, la transición de 200 mm (θ = 12.0°, $L_{tc}/d_{tc}$ = 6.7) y aletas de cuerda 100 mm:
-**7497 g** (−530 g), SM 1.185 (OpenRocket 1.185), $C_D$ 0.172, validado (ΔCP −0.05 mm). Plano:
+**7492 g** (−530 g), SM 1.185 (OpenRocket 1.184), $C_D$ 0.172, validado (ΔCP −0.05 mm). Plano:
 [`docs/planos/rank137_…_r1.2.pdf`](docs/planos/rank137_L400_D100_n1_conica_fc0_dtc15_tc100_m1_g0.6_s1_r1.2.pdf).
 El umbral de 12° es un aviso, no una restricción: si el equipo acepta 14°, el puesto 25 (tubo de
 120 mm) da 7.83 kg.
@@ -75,12 +76,12 @@ Criterio: $|\Delta x_{CP}| \le 2$ mm, $|\Delta m| \le 0.5\,\%$ y $SM_{OR} \in [1
 
 | Puesto | $L_{tc}$ / $f_c$ | masa modelo [g] | Δm OR | $x_{CP}$ modelo / OR [mm] | Δ$x_{CG}$ | SM modelo / OR | $C_D$ OR | ¿Valida? |
 |---|---|---|---|---|---|---|---|---|
-| 1 | 160 / 0 | 8026.3 | −0.004 % | 224.82 / 224.76 | +0.004 mm | 1.249 / 1.248 | 0.207 | sí |
-| 2 | 150 / 0 | 8023.5 | −0.004 % | 224.87 / 224.82 | +0.004 mm | 1.260 / 1.259 | 0.201 | sí |
-| 3 | 180 / 0.125 | 7996.3 | −0.004 % | 216.36 / 216.30 | +0.004 mm | 1.227 / 1.227 | 0.230 | sí |
-| 4 | 170 / 0.125 | 7994.3 | −0.004 % | 216.01 / 216.02 | +0.004 mm | 1.234 / 1.234 | 0.225 | sí |
-| 5 | 140 / 0 | 7991.1 | −0.004 % | 224.67 / 224.62 | +0.004 mm | 1.268 / 1.267 | 0.196 | sí |
-| 137 (extra) | 100 / 0 | 7496.7 | −0.004 % | 210.91 / 210.86 | +0.004 mm | 1.185 / 1.185 | 0.172 | sí |
+| 1 | 160 / 0 | 8022.4 | −0.004 % | 224.82 / 224.76 | +0.004 mm | 1.248 / 1.248 | 0.207 | sí |
+| 2 | 150 / 0 | 8019.4 | −0.004 % | 224.87 / 224.82 | +0.004 mm | 1.259 / 1.258 | 0.201 | sí |
+| 3 | 180 / 0.125 | 7992.5 | −0.004 % | 216.36 / 216.30 | +0.004 mm | 1.227 / 1.226 | 0.230 | sí |
+| 4 | 170 / 0.125 | 7990.3 | −0.004 % | 216.01 / 216.02 | +0.004 mm | 1.233 / 1.233 | 0.225 | sí |
+| 5 | 140 / 0 | 7987.0 | −0.004 % | 224.67 / 224.62 | +0.004 mm | 1.267 / 1.266 | 0.196 | sí |
+| 137 (extra) | 100 / 0 | 7492.4 | −0.004 % | 210.91 / 210.86 | +0.004 mm | 1.185 / 1.184 | 0.172 | sí |
 
 El ganador es un "dardo" abombado: la nariz roma concentra el plomo adelante, y la transición
 larga es a la vez la más suave y el brazo que separa la fuerza negativa de la transición de la
@@ -95,24 +96,24 @@ evaluaciones, sin refinamiento). Solo las filas **n = 4, tope ≤ 1.2** cumplen 
 
 | n | tope $r_{tip}/R$ | factibles | masa máx. [kg] | D aparente [mm] | SM [cal] | tol. amarre [mm] | activa |
 |---|---|---|---|---|---|---|---|
-| **4** | **1.0** | 674 | **4.99** | 100 | 1.10 | 1.20 | tol_amarre |
-| **4** | **1.1** | 4 901 | **6.56** | 110 | 1.19 | 1.20 | tol_amarre |
-| **4** | **1.2** | 15 723 | **8.03** | 120 | 1.25 | 1.20 | tol_amarre |
-| 4 | 1.3 | 26 009 | 9.43 | 130 | 1.25 | 1.20 | tol_amarre |
-| 4 | 1.4 | 37 944 | 10.81 | 140 | 1.28 | 1.20 | tol_amarre |
-| 4 | 1.6 | 49 814 | 11.50 | 160 | 1.13 | 1.26 | masa |
-| 6 | 1.0 | 3 786 | 7.49 | 100 | 1.24 | 1.20 | tol_amarre |
-| 6 | 1.1 | 18 322 | 9.18 | 110 | 1.25 | 1.20 | tol_amarre |
-| 6 | 1.2 | 40 278 | 10.93 | 120 | 1.27 | 1.20 | tol_amarre |
-| 6 | 1.3 | 52 328 | 11.50 | 130 | 1.33 | 1.35 | masa |
-| 6 | 1.4 | 64 160 | 11.50 | 140 | 1.19 | 1.21 | masa |
-| 6 | 1.6 | 75 361 | 11.50 | 160 | 1.25 | 1.68 | masa |
-| 8 | 1.0 | 6 786 | 8.93 | 100 | 1.30 | 1.20 | tol_amarre |
-| 8 | 1.1 | 26 910 | 10.86 | 110 | 1.27 | 1.20 | tol_amarre |
-| 8 | 1.2 | 50 770 | 11.50 | 120 | 1.18 | 1.22 | masa |
-| 8 | 1.3 | 62 623 | 11.50 | 130 | 1.20 | 1.43 | masa |
-| 8 | 1.4 | 74 163 | 11.50 | 140 | 1.26 | 1.45 | masa |
-| 8 | 1.6 | 84 839 | 11.50 | 140 | 1.26 | 1.45 | masa |
+| **4** | **1.0** | 665 | **4.98** | 100 | 1.10 | 1.20 | tol_amarre |
+| **4** | **1.1** | 4 873 | **6.56** | 110 | 1.19 | 1.20 | tol_amarre |
+| **4** | **1.2** | 15 648 | **8.02** | 120 | 1.25 | 1.20 | tol_amarre |
+| 4 | 1.3 | 25 913 | 9.43 | 130 | 1.25 | 1.20 | tol_amarre |
+| 4 | 1.4 | 37 844 | 10.81 | 140 | 1.28 | 1.20 | tol_amarre |
+| 4 | 1.6 | 49 725 | 11.50 | 160 | 1.13 | 1.26 | masa |
+| 6 | 1.0 | 3 761 | 7.48 | 100 | 1.24 | 1.20 | tol_amarre |
+| 6 | 1.1 | 18 246 | 9.17 | 110 | 1.25 | 1.20 | tol_amarre |
+| 6 | 1.2 | 40 183 | 10.92 | 120 | 1.27 | 1.20 | tol_amarre |
+| 6 | 1.3 | 52 238 | 11.50 | 130 | 1.33 | 1.35 | masa |
+| 6 | 1.4 | 64 080 | 11.50 | 140 | 1.19 | 1.21 | masa |
+| 6 | 1.6 | 75 300 | 11.50 | 160 | 1.24 | 1.68 | masa |
+| 8 | 1.0 | 6 761 | 8.93 | 100 | 1.30 | 1.20 | tol_amarre |
+| 8 | 1.1 | 26 850 | 10.86 | 110 | 1.27 | 1.20 | tol_amarre |
+| 8 | 1.2 | 50 711 | 11.50 | 120 | 1.17 | 1.22 | masa |
+| 8 | 1.3 | 62 569 | 11.50 | 130 | 1.20 | 1.43 | masa |
+| 8 | 1.4 | 74 117 | 11.50 | 140 | 1.26 | 1.45 | masa |
+| 8 | 1.6 | 84 815 | 11.50 | 140 | 1.26 | 1.45 | masa |
 
 ![masa vs tope](docs/masa_vs_tope.png)
 
@@ -121,14 +122,14 @@ evaluaciones, sin refinamiento). Solo las filas **n = 4, tope ≤ 1.2** cumplen 
 ![masa vs L_tc](docs/masa_vs_Ltc.png)
 
 Cada mm de tubo de cola es un mm menos de plomo, pero es el brazo de las aletas. La masa crece hasta
-$L_{tc}$ ≈ 160 mm (D = 100: 8.03 kg; D = 90: 6.25 kg) y luego cae; con D = 60 mm la curva es casi
+$L_{tc}$ ≈ 160 mm (D = 100: 8.02 kg; D = 90: 6.25 kg) y luego cae; con D = 60 mm la curva es casi
 plana. Con D = 100 mm la caída pasados los 160 mm es más fuerte (200 mm: 7.40 kg), porque la
 transición se acorta y se empina. $L_{tc}$ = 40 mm no tiene factibles: la cuerda mínima de 50 mm no
 cabe. Masa máxima por D (con refinamiento):
 
 | D [mm] | 60 | 65 | 70 | 75 | 80 | 85 | 90 | 95 | 97.5 | 100 |
 |---|---|---|---|---|---|---|---|---|---|---|
-| masa [kg] | 2.67 | 3.22 | 3.68 | 4.49 | 5.05 | 5.63 | 6.25 | 6.90 | 7.46 | **8.03** |
+| masa [kg] | 2.67 | 3.21 | 3.68 | 4.48 | 5.04 | 5.63 | 6.25 | 6.90 | 7.45 | **8.02** |
 | SM [cal] | 2.00 | 1.92 | 1.77 | 1.69 | 1.58 | 1.48 | 1.37 | 1.29 | 1.27 | 1.25 |
 
 (Con D hasta 90 mm, el refinamiento a medio paso había subido de 6.25 a 6.45 kg bajando $k$ a 0.175.
@@ -161,14 +162,14 @@ su CP queda delante de la nariz (−133.6 mm). `tests/test_lastre.py` lo comprue
 
 ## PENDIENTES (supuestos de la spec por confirmar)
 
-Sensibilidad: malla por defecto completa **sin refinamiento** (referencia **8.03 kg**, la misma del
+Sensibilidad: malla por defecto completa **sin refinamiento** (referencia **8.02 kg**, la misma del
 ganador), cambiando un parámetro a la vez.
 
 | Parámetro | Valor usado | Variación → masa máxima [kg] (Δ) |
 |---|---|---|
-| `electronica.r_min_mm` | `null` | 15 → **8.80** (+0.77) · 25 → **8.77** (+0.75) · 35 → 8.56 (+0.54) |
-| `restricciones.d_tc_min_mm` | 15 | 12 → 8.17 (+0.15) · 20 → 7.56 (−0.47) · 25 → 7.06 (−0.97) |
-| `restricciones.c_r_min_mm` | 50 | 30, 80 y 100 → 8.03 (sin cambio: el óptimo usa $c_r$ = 112 mm) |
+| `electronica.r_min_mm` | `null` | 15 → **8.79** (+0.77) · 25 → **8.77** (+0.75) · 35 → 8.56 (+0.54) |
+| `restricciones.d_tc_min_mm` | 15 | 12 → 8.17 (+0.15) · 20 → 7.56 (−0.47) · 25 → 7.05 (−0.97) |
+| `restricciones.c_r_min_mm` | 50 | 30, 80 y 100 → 8.02 (sin cambio: el óptimo usa $c_r$ = 112 mm) |
 | `restricciones.L_n_rel_D_min` | 1.0 | 0.75 → 8.16 (+0.14) |
 | D máximo (`malla.D_mm`) | **100** (el equipo lo subió de 90) | 90 → 6.25 (−1.78) · 110 → **9.51** (+1.48; D aparente 132 mm) |
 | `masa.m_max_g` | 11500 | no activo |
@@ -183,7 +184,7 @@ ganador), cambiando un parámetro a la vez.
   (+0.15 kg), subirlo cuesta bastante (20 mm: −0.47 kg). La cuerda mínima no está activa: con
   envergadura pequeña el $C_{N\alpha}$ de las aletas se satura con la cuerda, y el óptimo ya usa
   cuerdas de 100 mm o más.
-- **La tolerancia de amarre es casi lineal en la masa**: 1.2/1.5 × 8.03 = 6.4 kg; el óptimo se
+- **La tolerancia de amarre es casi lineal en la masa**: 1.2/1.5 × 8.02 = 6.4 kg; el óptimo se
   reacomoda (tubo más largo) y queda en 7.00 kg.
 - **D sigue activo**: la masa crece ≈ 0.55 kg cada 2.5 mm cerca de 100 mm. El límite real lo pone la
   bahía del Barracuda, no el sensor.
@@ -229,7 +230,9 @@ config/optimizacion.yaml ──► 01_optimizar_malla.py ──► data_opt/rank
    con $f_n$ = 1 (n ≤ 4), 0.948, 0.913, 0.854, 0.81 (n = 5–8) y 0.75 (n > 8), leído de
    `FinSetCalc.calculateNonaxialForces` (OpenRocket 24.12) y verificado con 6 y 8 aletas (T7).
 4. **Llenado de plomo** (idéntico a `dbf-sensor`). Electrónica detrás del tapón delantero:
-   $$x_{CG}(\ell)=\frac{M_0+\rho_b\,\Phi_1(\ell)+m_e\,\bar x_e(\ell)}{m_0+\rho_b\,\forall(\ell)+m_e},\qquad SM=\frac{x_{CP}-x_{CG}}{D}$$
+   $$x_{CG}(\ell)=\frac{M_0+\rho_b\,\Phi_1(\ell)+m_e\,\bar x_e(\ell)}{m_0-m_{cg}+\rho_b\,\forall(\ell)+m_e},\qquad SM=\frac{x_{CP}-x_{CG}}{D}$$
+   El herraje de remolque ($m_{cg}$ = 15 g, `x_mm: cg`) va en el CG, donde está el amarre: entra en la
+   masa total (y en la tolerancia del amarre), pero no en el momento, así que no mueve el CG.
    Con `electronica.r_min_mm`, $x_e(\ell) = \max(x_{b0}+\ell+h,\ x_a)$ y
    $\ell_{geo} = x_b - L_e - 2h - x_{b0}$, con $[x_a, x_b]$ el tramo con $r_i \ge r_{min}$. Primero el
    tapón delantero hasta $SM = SM_{min}$ o la geometría; luego el trasero; después el tope
@@ -256,12 +259,20 @@ config/optimizacion.yaml ──► 01_optimizar_malla.py ──► data_opt/rank
 Uno por cada uno de los `salida.N_planos` mejores (y por cada `--cand`), en `planos/rankNN_<cand_id>.png`
 (300 dpi) y `.pdf` (vectorial): hoja A3 a la mayor escala normalizada que cabe (1:2 con L = 400 mm),
 con vista lateral en corte (pared por capas, tapones de plomo rayados, electrónica, herraje, tubo y
-aletas en verdadera magnitud, CG y CP con el brazo SM·D acotado), vista posterior (aletas con su
-rotación y círculo del D aparente), cotas en mm, tabla de cotas, barra de escala y cajetín (masas,
+aletas en verdadera magnitud, CG y CP con el brazo SM·D acotado), vista posterior (aletas, círculo
+del D aparente y **caja mínima** con la altura aparente acotada), cotas en mm, tabla de cotas, barra de escala y cajetín (masas,
 estabilidad, $\theta_{eq}$, AR, $V_{flutter}$, restricción activa, banderas y la línea de validación
 con OpenRocket o "sin validar"). Además, `planos/comparativo_top.png` (siluetas superpuestas) y
 `data_opt/rankNN_perfil.csv` ($x$, $r_e$, $r_i$ y polígono de la aleta) para CAD/CFD. Sin
 factibles, dibuja los 3 primeros casi factibles con el rótulo INFACTIBLE.
+
+**Altura aparente** $H_{ap}$: la menor altura de una caja que contiene al sensor acostado, girándolo
+sobre su eje y contando el espesor real de las aletas,
+$H_{ap} = \min_\varphi\,[y_{max}(\varphi) - y_{min}(\varphi)]$. Con 4 aletas el mínimo está a 45° y
+$H_{ap} = \max\big(2R,\ \sqrt2\,(r_{tip} + t/2)\big)$: las aletas no suben la caja mientras
+$r_{tip} \le \sqrt2\,R - t/2$ (≈ 1.38 R). Con el tope de 1.2 R **todos los candidatos tienen
+$H_{ap} = D$**; el ganador cabe en una caja de 400 × 100 × 100 mm, aunque su D aparente frontal sea
+de 120 mm. Está en el ranking (`H_ap_mm`, `ancho_caja_mm`, `giro_caja_deg`).
 
 Los planos son deterministas: la misma entrada da los mismos bytes en PNG y PDF (sin fecha de
 creación incrustada). La metodología completa, las versiones exactas (`requirements-lock.txt`) y
@@ -314,7 +325,7 @@ Variantes: un YAML con `hereda: optimizacion.yaml` cambia solo lo que declara
 | `materiales`, `costos_usd_kg` | densidades (kg/m³) y precio del plomo |
 | `masa` | tope de masa total (11.5 kg) |
 | `pared` | capas de afuera hacia adentro, por estación (`nariz`, `cuerpo`, `cola`, `tubo_cola`) |
-| `electronica`, `masas_puntuales` | electrónica (20 mm, 150 g, `r_min_mm`) y herraje de remolque |
+| `electronica`, `masas_puntuales` | electrónica (20 mm, 150 g, `r_min_mm`) y herraje de remolque (15 g, `x_mm: cg`: en el CG, donde va el amarre) |
 | `lastre` | radio mínimo útil, fracción máxima de L, margen antes de la transición, tapón trasero |
 | `condiciones_vuelo`, `remolque`, `envolvente` | V, altitud ISA, Mach; α de trim y tolerancia mínima del amarre (1.2 mm); rotación de guardado |
 | `geometria_fija` | nariz elipsoide, transición recortada, aletas (n, material, espesor 3 mm, flutter) |

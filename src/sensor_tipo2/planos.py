@@ -4,8 +4,9 @@ Cada plano es una hoja A3 apaisada a escala normalizada (1:x, la mayor que cabe)
 
 - vista lateral en corte: perfil, capas de pared, tapones de plomo, electrónica, herraje, tubo de
   cola y aletas en verdadera magnitud; CG y CP con el brazo SM·D acotado;
-- vista posterior: cuerpo, tubo de cola, aletas con su rotación y el círculo del D aparente;
-- cotas en mm (L, L_n, L_c, L_t, L_tc, D, d_tc, D_ap, c_r, c_t, x_s, h, espesor de aleta, tapones de
+- vista posterior: cuerpo, tubo de cola, aletas, el círculo del D aparente y la caja mínima (altura
+  aparente H_ap: la menor altura de una caja que contiene al sensor acostado, girándolo sobre su eje);
+- cotas en mm (L, L_n, L_c, L_t, L_tc, D, d_tc, D_ap, H_ap, c_r, c_t, x_s, h, espesor de aleta, tapones de
   plomo, posición y largo de la electrónica), barra de escala y cajetín con masas, estabilidad,
   banderas y la línea de validación con OpenRocket (o "sin validar").
 
@@ -28,6 +29,7 @@ import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 from matplotlib.patches import Circle, Polygon, Rectangle  # noqa: E402
 
+from .aletas import CajaMinima, altura_aparente  # noqa: E402
 from .barrido import specs_de_fila  # noqa: E402
 from .config import ConfigOpt  # noqa: E402
 from .exportar import (AMARILLO, AQUA, AZUL, CAPAS, NARANJA, REJILLA, SUPERFICIE, TINTA, TINTA2,  # noqa: E402
@@ -46,7 +48,7 @@ FUENTE = 6.5  # pt de las cotas
 
 # cota del plano → columna del ranking con el mismo valor (T11)
 COL_RANKING = {"L": "L_mm", "L_n": "L_n_mm", "L_c": "L_c_mm", "L_t": "L_t_mm", "L_tc": "L_tc_mm", "D": "D_mm",
-               "d_tc": "d_tc_mm", "D_ap": "D_ap_mm", "c_r": "c_r_mm", "c_t": "c_t_mm", "x_s": "x_s_mm", "h": "h_mm",
+               "d_tc": "d_tc_mm", "D_ap": "D_ap_mm", "H_ap": "H_ap_mm", "c_r": "c_r_mm", "c_t": "c_t_mm", "x_s": "x_s_mm", "h": "h_mm",
                "plomo_delantero": "ell_mm", "plomo_trasero": "ell_trasero_mm", "x_electronica": "x_electronica_mm"}
 
 
@@ -187,6 +189,15 @@ def _vista_lateral(ax, cfg: ConfigOpt, det: Detalle, est: Estado | None, cot: _C
         ax.text((est.x_e / MM + Le / 2), 0, "electrónica", rotation=90, ha="center", va="center", fontsize=5.5,
                 color=TINTA, zorder=6)
     for pm in cfg.puntuales:
+        if pm.en_cg:
+            if est is None:
+                continue
+            # herraje de remolque en el CG: línea de amarre del CG a la piel superior y el herraje sobre ella
+            xh = est.x_CG / MM
+            rs = float(np.interp(est.x_CG, cav.x, cav.r_e)) / MM
+            ax.plot([xh, xh], [0, rs + 3.0], color=TINTA, lw=0.8, zorder=6)
+            ax.add_patch(Rectangle((xh - 2.5, rs - 0.5), 5, 3.5, fc=TINTA, ec="none", zorder=6))
+            continue
         ax.add_patch(Rectangle((pm.x / MM - 2, -2), 4, 4, fc=TINTA, ec="none", zorder=6))
         ax.annotate(pm.nombre.replace("_", " "), (pm.x / MM, -2), xytext=(pm.x / MM, -R * 0.55),
                     fontsize=5.5, ha="center", color=TINTA, arrowprops=dict(arrowstyle="-", lw=0.4, color=TINTA2),
@@ -196,7 +207,8 @@ def _vista_lateral(ax, cfg: ConfigOpt, det: Detalle, est: Estado | None, cot: _C
         xcg, xcp = est.x_CG / MM, est.x_CP / MM
         ax.plot(xcg, 0, "o", ms=6, mfc="white", mec=TINTA, mew=1.0, zorder=7)
         ax.plot(xcg, 0, marker=(2, 0, 45), ms=6, color=TINTA, mew=0.8, zorder=7)
-        ax.text(xcg, -3, f"CG {xcg:.1f}", ha="center", va="top", fontsize=FUENTE, zorder=7,
+        amarre = " = amarre (herraje)" if any(pm.en_cg for pm in cfg.puntuales) else ""
+        ax.text(xcg + 3, -3, f"CG {xcg:.1f}{amarre}", ha="left", va="top", fontsize=FUENTE, zorder=7,
                 bbox=dict(fc="white", ec="none", pad=0.3))
         ax.plot(xcp, 0, "D", ms=5, mfc=NARANJA, mec=TINTA, mew=0.6, zorder=7)
         ax.text(xcp, -3, f"CP {xcp:.1f}", ha="center", va="top", fontsize=FUENTE, zorder=7,
@@ -255,17 +267,19 @@ def _vista_lateral(ax, cfg: ConfigOpt, det: Detalle, est: Estado | None, cot: _C
     ax.text(52, yb_ + 1.1, "mm", ha="left", va="center", fontsize=FUENTE)
 
 
-def _vista_posterior(ax, cfg: ConfigOpt, det: Detalle, cot: _Cotas, lim: float):
+def _vista_posterior(ax, cfg: ConfigOpt, det: Detalle, cot: _Cotas, lim: float, caja: CajaMinima | None):
     p, g = det.cu.perfil, det.g
     R, r_tc = p.R / MM, p.r_tc / MM
     ax.add_patch(Circle((0, 0), R, fc=REJILLA, ec=TINTA, lw=0.8))
     ax.add_patch(Circle((0, 0), r_tc, fc=SUPERFICIE, ec=TINTA, lw=0.6))
-    ax.plot([-lim * 0.9, lim * 0.9], [0, 0], color=TINTA2, lw=0.3, ls=(0, (10, 2, 2, 2)))
-    ax.plot([0, 0], [-lim * 0.9, lim * 0.9], color=TINTA2, lw=0.3, ls=(0, (10, 2, 2, 2)))
+    e = lim - 14.0  # ejes hasta R_max + 6: no cruzan los textos del pie
+    ax.plot([-e, e], [0, 0], color=TINTA2, lw=0.3, ls=(0, (10, 2, 2, 2)))
+    ax.plot([0, 0], [-e, e], color=TINTA2, lw=0.3, ls=(0, (10, 2, 2, 2)))
     if g is None:
         return
     t, r_tip = g.params.t / MM, g.r_tip / MM
-    for phi in g.params.rotacion + 2 * np.pi * np.arange(g.params.n) / g.params.n:
+    phi0 = caja.phi if caja is not None else g.params.rotacion  # el giro que da la caja mínima
+    for phi in phi0 + 2 * np.pi * np.arange(g.params.n) / g.params.n:
         u = np.array([np.sin(phi), np.cos(phi)])
         nrm = np.array([u[1], -u[0]])
         cc = np.array([r_tc * u + t / 2 * nrm, r_tip * u + t / 2 * nrm, r_tip * u - t / 2 * nrm, r_tc * u - t / 2 * nrm])
@@ -274,15 +288,24 @@ def _vista_posterior(ax, cfg: ConfigOpt, det: Detalle, cot: _Cotas, lim: float):
     ax.add_patch(Circle((0, 0), D_ap / 2, fc="none", ec=NARANJA, lw=0.8, ls=(0, (5, 3))))
     ax.text(0, D_ap / 2 + 2, f"D_ap = {cot.valor('D_ap', D_ap)}", ha="center", va="bottom", fontsize=FUENTE,
             color=NARANJA)
-    ax.text(0, -lim + 2, f"{g.params.n} aletas a {math.degrees(g.params.rotacion):g}° · t = "
+    if caja is not None:
+        x0, x1, y0, y1 = (v / MM for v in caja.extremos)
+        ax.add_patch(Rectangle((x0, y0), x1 - x0, y1 - y0, fc="none", ec=AZUL, lw=0.8, ls=(0, (5, 3)), zorder=4))
+        x_cota = max(x1, D_ap / 2) + 6  # fuera del círculo del D aparente
+        cot.v("H_ap", x_cota, y0, y1, "H_ap", (x1, x1), izquierda=False)
+        cot.valor("ancho_caja", x1 - x0)
+    ax.text(0, -lim + 2, f"{g.params.n} aletas a {math.degrees(phi0):g}° de la vertical · t = "
             f"{cot.valor('t_aleta', t)} · r_tip = {r_tip:.1f}", ha="center", va="bottom", fontsize=FUENTE)
+    if caja is not None:
+        ax.text(0, -lim + 8, f"caja mínima (azul): alto H_ap = {_txt(caja.alto / MM)} · ancho = "
+                f"{_txt(caja.ancho / MM)}", ha="center", va="bottom", fontsize=FUENTE, color=AZUL)
 
 
 # --------------------------------------------------------------------------- cajetín
 
 
 def _filas_cajetin(cfg: ConfigOpt, fila: pd.Series, det: Detalle, est: Estado | None, puesto, val: dict | None,
-                   escala: float, falla: str) -> list[tuple[str, str]]:
+                   escala: float, falla: str, caja: CajaMinima | None = None) -> list[tuple[str, str]]:
     g, cu = det.g, det.cu
     f = est.fila if est is not None else {}
     me = cfg.electronica.me / G
@@ -308,7 +331,11 @@ def _filas_cajetin(cfg: ConfigOpt, fila: pd.Series, det: Detalle, est: Estado | 
         ("Masa total" + sufijo, f"{m_tot:.1f} g"),
         ("  casco / aletas", f"{cu.m_casco / G:.1f} g / {(g.masa / G if g is not None else math.nan):.1f} g"),
         ("  plomo delantero / trasero", f"{m_del:.1f} g / {m_tras:.1f} g"),
-        ("  electrónica / herraje", f"{me:.1f} g / {m_punt:.1f} g"),
+        ("  electrónica / herraje" + (" (en el CG)" if any(pm.en_cg for pm in cfg.puntuales) else ""),
+         f"{me:.1f} g / {m_punt:.1f} g"),
+        ("D aparente · altura aparente", (f"{2 * max(cu.perfil.R, g.r_tip) / MM:.1f} mm · {caja.alto / MM:.1f} mm "
+                                          f"(caja mín. {cu.perfil.L / MM:.0f} × {caja.ancho / MM:.1f} × {caja.alto / MM:.1f} mm)")
+         if caja is not None else "—"),
         ("x_CG / x_CP (desde la punta)", f"{(est.x_CG / MM if est else math.nan):.1f} / "
                                          f"{(est.x_CP / MM if est else math.nan):.1f} mm"),
         ("SM · C_Nα", f"{SM:.3f} cal · {fila.get('CN_alpha_total', math.nan):.3f}"),
@@ -362,7 +389,7 @@ def plano(cfg: ConfigOpt, fila: pd.Series, ruta_base: Path, puesto=None, validac
     L, R = p.L / MM, p.R / MM
     Rmax = max(R, g.r_tip / MM if g is not None else R)
     lat = (-34.0, L + 40.0, -(Rmax + 37.0), Rmax + 24.0)
-    lim = Rmax + 14.0
+    lim = Rmax + 20.0
     W, H = HOJA_MM
     ancho_disp = W - 2 * MARCO_MM - 26.0
     alto_disp = H - 2 * MARCO_MM - 120.0
@@ -395,7 +422,9 @@ def plano(cfg: ConfigOpt, fila: pd.Series, ruta_base: Path, puesto=None, validac
     ap.set_aspect("equal")
     ap.axis("off")
     cot.ax = ap
-    _vista_posterior(ap, cfg, det, cot, lim)
+    caja = (altura_aparente(p.R, p.r_tc, g.r_tip, g.params.t, g.params.n, g.params.rotacion,
+                            cfg.numerico.n_rotacion_caja) if g is not None else None)
+    _vista_posterior(ap, cfg, det, cot, lim, caja)
     y_tit = y_vistas + max(h_lat, 2 * lim / esc) + 3.0
     marco.text(MARCO_MM + 8.0, y_tit, "VISTA LATERAL EN CORTE (aletas en verdadera magnitud)", fontsize=8, weight="bold")
     marco.text(x_post, y_tit, "VISTA POSTERIOR (desde popa)", fontsize=8, weight="bold")
@@ -407,7 +436,8 @@ def plano(cfg: ConfigOpt, fila: pd.Series, ruta_base: Path, puesto=None, validac
                    color=ROJO, weight="bold", va="top")
     # tabla de cotas (las mismas que en las vistas)
     nombres = {"L": "L total", "L_n": "L_n nariz", "L_c": "L_c cuerpo cilíndrico", "L_t": "L_t transición",
-               "L_tc": "L_tc tubo de cola", "D": "D cuerpo", "d_tc": "d_tc tubo de cola", "D_ap": "D_ap aparente",
+               "L_tc": "L_tc tubo de cola", "D": "D cuerpo", "d_tc": "d_tc tubo de cola", "D_ap": "D_ap aparente", "H_ap": "H_ap altura aparente (caja mín.)",
+               "ancho_caja": "ancho de la caja mínima",
                "c_r": "c_r cuerda de raíz", "c_t": "c_t cuerda de punta", "x_s": "x_s flecha", "h": "h envergadura",
                "t_aleta": "t espesor de aleta", "plomo_delantero": "tapón de plomo delantero",
                "plomo_trasero": "tapón de plomo trasero", "x_electronica": "x inicio de la electrónica",
@@ -422,7 +452,7 @@ def plano(cfg: ConfigOpt, fila: pd.Series, ruta_base: Path, puesto=None, validac
         marco.text(xc, yc, k, fontsize=6.4, color=TINTA2, va="top")
         marco.text(xc + 52.0, yc, v, fontsize=6.4, color=TINTA, va="top", ha="right")
     # cajetín y notas
-    filas = _filas_cajetin(cfg, fila, det, est, puesto, validacion, esc, falla)
+    filas = _filas_cajetin(cfg, fila, det, est, puesto, validacion, esc, falla, caja)
     ancho_caj, alto_caj = 205.0, 92.0
     caj = ejes(W - MARCO_MM - ancho_caj, MARCO_MM, ancho_caj, alto_caj)
     _cajetin(caj, filas, "Sensor remolcado tipo 2 · DBF 2026-27 (UPB) · plano de optimización")

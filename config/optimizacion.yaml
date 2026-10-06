@@ -40,7 +40,7 @@ electronica:                    # detrás del tapón de lastre delantero, como e
                                 # radio); con valor puede ir en nariz, cuerpo o transición si r_i ≥ r_min
 
 masas_puntuales:
-  - {nombre: herraje_remolque, masa_g: 15, x_mm: 40}
+  - {nombre: herraje_remolque, masa_g: 15, x_mm: cg}  # en el CG (el amarre va en el CG); x_mm numérico = fijo
 
 lastre:
   r_min_util_mm: 3.0            # el tapón delantero empieza donde r_i ≥ r_min_util (x_b0)
@@ -144,6 +144,7 @@ numerico:
   n_barrido_ell: 600
   tol_raiz_mm: 0.01
   n_franjas_aleta: 48
+  n_rotacion_caja: 720          # muestras del giro (en un periodo 360°/n) para la altura aparente
   tol_masa_max_g: 0.5           # (OpenRocket 24.12 acepta un BodyTube de largo 0: el cuerpo abombado no
                                 # necesita un largo mínimo)
 

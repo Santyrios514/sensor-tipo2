@@ -261,8 +261,9 @@ class Cuerpo:
     perfil: Perfil | None = None
     cav: Cavidad | None = None
     capas: list[MasaCapa] = field(default_factory=list)
-    m_puntuales: float = 0.0
-    M_puntuales: float = 0.0
+    m_puntuales: float = 0.0  # todas las masas puntuales
+    M_puntuales: float = 0.0  # momento de las de x fijo
+    m_puntuales_cg: float = 0.0  # las que van en el CG (no mueven el CG)
     x_b0: float = math.nan
     lim: LimiteGeo | None = None
     partes: tuple[Contribucion, ...] = ()  # nariz y transición
@@ -348,7 +349,8 @@ def construir_cuerpo(cfg: ConfigOpt, spec: CuerpoSpec) -> Cuerpo:
     cu.cav = construir_cavidad(cu.perfil, cfg.pared, cfg.numerico.dx)
     cu.capas = masas_pared(cu.cav, cfg.pared)
     cu.m_puntuales = sum(p.m for p in cfg.puntuales)
-    cu.M_puntuales = sum(p.m * p.x for p in cfg.puntuales)
+    cu.M_puntuales = sum(p.m * p.x for p in cfg.puntuales if not p.en_cg)
+    cu.m_puntuales_cg = sum(p.m for p in cfg.puntuales if p.en_cg)
     cu.x_b0 = x_inicio_lastre(cfg, cu.cav)
     cu.lim = limite_geometrico(cfg, cu.perfil, cu.cav, cu.x_b0)
     if not cu.lim.ell_geo > 0:

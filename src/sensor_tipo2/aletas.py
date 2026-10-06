@@ -109,6 +109,66 @@ def envolvente(r_tip: float, R: float, n: int, rotacion: float) -> tuple[float, 
     return float(max(R, c.max()) + max(R, -c.min())), float(max(R, s.max()) + max(R, -s.min()))
 
 
+def extremos_seccion(R: float, r_tc: float, r_tip: float, t: float, n: int, phi0) -> np.ndarray:
+    """(x_min, x_max, y_min, y_max) exactos de la sección transversal: el cuerpo (círculo de radio R)
+    y n aletas rectangulares de espesor t entre r_tc y r_tip, con la aleta 0 a phi0 de la vertical.
+    Con phi0 vector (m,), devuelve un arreglo (m, 4)."""
+    phi0 = np.asarray(phi0, dtype=float)
+    phi = phi0[..., None] + 2 * np.pi * np.arange(n) / n
+    s_, c_ = np.sin(phi), np.cos(phi)
+    xs, ys = [], []
+    for r in (r_tc, r_tip):
+        for sg in (1.0, -1.0):
+            # r u + sg t/2 w, con u = (sin φ, cos φ) radial y w = (cos φ, −sin φ) normal a la aleta
+            xs.append(r * s_ + sg * t / 2 * c_)
+            ys.append(r * c_ - sg * t / 2 * s_)
+    x, y = np.concatenate(xs, axis=-1), np.concatenate(ys, axis=-1)
+    return np.stack([np.minimum(-R, x.min(-1)), np.maximum(R, x.max(-1)),
+                     np.minimum(-R, y.min(-1)), np.maximum(R, y.max(-1))], axis=-1)
+
+
+@dataclass(frozen=True)
+class CajaMinima:
+    """Caja de menor altura que contiene al sensor acostado (eje horizontal), girándolo sobre su eje."""
+
+    alto: float  # altura aparente H_ap [m]
+    ancho: float  # ancho de la caja con ese giro [m]
+    phi: float  # giro de la aleta 0 respecto de la vertical que da H_ap [rad]
+    extremos: tuple[float, float, float, float]  # (x_min, x_max, y_min, y_max) con ese giro [m]
+
+
+def altura_aparente(R: float, r_tc: float, r_tip: float, t: float, n: int, phi_vuelo: float,
+                    n_muestras: int) -> CajaMinima:
+    """H_ap = min_φ [y_max(φ) − y_min(φ)]: la altura mínima de una caja que contiene al sensor acostado.
+
+    La sección tiene periodo 2π/n en φ. Se muestrea un periodo con n_muestras puntos y se refina el
+    mínimo con una búsqueda acotada. Si el giro de vuelo (`phi_vuelo`) ya da la altura mínima, se usa
+    ese giro (con 4 aletas a 45° y r_tip ≤ √2 R − t/2 la altura es la del cuerpo, 2R)."""
+    from scipy.optimize import minimize_scalar
+
+    def alto(phi):
+        e = extremos_seccion(R, r_tc, r_tip, t, n, phi)
+        return float(e[3] - e[2])
+
+    e = extremos_seccion(R, r_tc, r_tip, t, n, phi_vuelo)
+    if e[3] - e[2] <= 2 * R + 1e-15:  # H_ap ≥ 2R siempre: el giro de vuelo ya es el mínimo
+        return CajaMinima(alto=float(e[3] - e[2]), ancho=float(e[1] - e[0]), phi=float(phi_vuelo),
+                          extremos=tuple(float(v) for v in e))
+    T = 2 * np.pi / n
+    phis = phi_vuelo + np.linspace(0.0, T, n_muestras, endpoint=False)
+    E = extremos_seccion(R, r_tc, r_tip, t, n, phis)
+    H = E[:, 3] - E[:, 2]
+    i = int(np.argmin(H))
+    paso = T / n_muestras
+    r = minimize_scalar(alto, bounds=(phis[i] - paso, phis[i] + paso), method="bounded",
+                        options={"xatol": 1e-10})
+    phi, H_min = (float(r.x), float(r.fun)) if r.fun < H[i] else (float(phis[i]), float(H[i]))
+    if alto(phi_vuelo) <= H_min + 1e-12:
+        phi, H_min = phi_vuelo, alto(phi_vuelo)
+    e = extremos_seccion(R, r_tc, r_tip, t, n, phi)
+    return CajaMinima(alto=float(H_min), ancho=float(e[1] - e[0]), phi=phi, extremos=tuple(float(v) for v in e))
+
+
 # --------------------------------------------------------------------------- Barrowman (Niskanen §3.2.2)
 
 # Interferencia aleta-aleta de OpenRocket 24.12 (FinSetCalc.calculateNonaxialForces, leído del código

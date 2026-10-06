@@ -15,7 +15,7 @@ byte**.
 
 ```bash
 git clone https://github.com/Santyrios514/sensor-tipo2 && cd sensor-tipo2
-git checkout claude/sensor-tipo2-v2r2        # o el commit que acompaña a docs/planos/SHA256SUMS
+git checkout main                             # el commit que trae docs/planos/SHA256SUMS
 python3 --version                             # 3.11.x
 pip install -r requirements-lock.txt          # versiones exactas (ver §2)
 python -m orlab fetch 24.12                   # OpenRocket 24.12, solo para el paso 3
@@ -47,7 +47,7 @@ sin banderas (puesto 137). El del paso 4 le dibuja su plano. Sin `--cand` solo s
 
 | Entrada | Valor de referencia | Por qué importa |
 |---|---|---|
-| Código | rama `claude/sensor-tipo2-v2r2`; `src/sensor_tipo2/planos.py`, `scripts/04_planos.py` | toda la geometría del dibujo está en el código |
+| Código | rama `main` (el commit de `docs/planos/SHA256SUMS`); `src/sensor_tipo2/planos.py`, `aletas.altura_aparente`, `scripts/04_planos.py` | toda la geometría del dibujo está en el código |
 | Configuración | `config/optimizacion.yaml` del mismo commit (D de 60 a 100 mm) | define la malla, la pared, la electrónica, el herraje, el plomo y `salida.*` |
 | Ranking | `data_opt/ranking.csv` del script 01 | el plano lee la fila del candidato (CSV con `%.6g`) |
 | Validación | `data_opt/validacion_or.csv` del script 02 | solo la línea "Validación" del cajetín |
@@ -99,7 +99,9 @@ ranking.csv ──fila──► specs_de_fila ──► (CuerpoSpec, AletaSpec)
    - la electrónica empieza en $x_e = \max(x_{b0}+\ell+h_e,\ x_a)$, con $h_e$ = `electronica.holgura_mm`
      (2 mm), y mide $L_e$ = 20 mm;
    - el tapón trasero ocupa $[x_{r0},\ x_{r0}+\ell_2]$, con $x_{r0} = x_e + L_e + h_e$;
-   - los dos tapones llenan la cavidad completa ($-r_i$ a $+r_i$) en su tramo.
+   - los dos tapones llenan la cavidad completa ($-r_i$ a $+r_i$) en su tramo;
+   - el herraje de remolque (`masas_puntuales`, `x_mm: cg`) va en el CG: suma masa pero no mueve el
+     CG, y se dibuja (y se carga en OpenRocket) en el $x_{CG}$ final.
 5. **Estado dibujado** (`planos.estado`):
    - **factible**: $\ell$ y $\ell_2$ del llenado; CG con los dos tapones;
    - **infactible**: $\ell$ = el que minimiza $x_{CG}$ en `numerico.n_barrido_ell` (600) puntos de
@@ -118,16 +120,16 @@ posición en mm se divide por (420, 297).
 | Vista | x | y |
 |---|---|---|
 | Lateral | de −34 a $L + 40$ | de $-(R_{max}+37)$ a $R_{max}+24$ |
-| Posterior | de $-(R_{max}+14)$ a $R_{max}+14$ | ídem |
+| Posterior | de $-(R_{max}+20)$ a $R_{max}+20$ | ídem |
 
 **Escala.** Se prueba la lista normalizada 1:1, 1:1.5, 1:2, 1:2.5, 1:3, 1:4, 1:5, 1:10 y se toma
 la **primera** (la mayor) que cumpla las dos condiciones:
 
-$$\frac{(L+74) + 2(R_{max}+14)}{e} \le 420 - 2\cdot10 - 26 = 374\ \text{mm},\qquad
-\frac{\max\big(2R_{max}+61,\ 2(R_{max}+14)\big)}{e} \le 297 - 2\cdot10 - 120 = 157\ \text{mm}$$
+$$\frac{(L+74) + 2(R_{max}+20)}{e} \le 420 - 2\cdot10 - 26 = 374\ \text{mm},\qquad
+\frac{\max\big(2R_{max}+61,\ 2(R_{max}+20)\big)}{e} \le 297 - 2\cdot10 - 120 = 157\ \text{mm}$$
 
-Con $L = 400$ mm y $R_{max} = 60$ mm: ancho $(474 + 148)/e$; 1:1.5 da 415 mm (no cabe) y **1:2**
-da 311 mm (cabe). Las dos vistas usan la misma escala ($e$ mm reales por mm de papel) y
+Con $L = 400$ mm y $R_{max} = 60$ mm: ancho $(474 + 160)/e$; 1:1.5 da 423 mm (no cabe) y **1:2**
+da 317 mm (cabe). Las dos vistas usan la misma escala ($e$ mm reales por mm de papel) y
 `set_aspect("equal")`, así que la barra de escala vale para ambas.
 
 **Posición de los bloques** (mm de papel, origen abajo a la izquierda):
@@ -136,7 +138,7 @@ da 311 mm (cabe). Las dos vistas usan la misma escala ($e$ mm reales por mm de p
 |---|---|---|---|
 | Marco | 10 | 10 | 400 × 277 (línea 1.0) |
 | Vista lateral | 18 | $y_v = 297 - 10 - 14 - \max(h_{lat}, 2\,lim/e)$ | $w_{lat} = (L+74)/e$ × $h_{lat} = (2R_{max}+61)/e$ |
-| Vista posterior | $18 + w_{lat} + 10$ | $y_v + (h_{lat} - 2\,lim/e)/2$ (centrada en altura) | $2\,lim/e$ × $2\,lim/e$, $lim = R_{max}+14$ |
+| Vista posterior | $18 + w_{lat} + 10$ | $y_v + (h_{lat} - 2\,lim/e)/2$ (centrada en altura) | $2\,lim/e$ × $2\,lim/e$, $lim = R_{max}+20$ |
 | Títulos de las vistas | 18 y $x$ de la posterior | $y_v + \max(h_{lat}, 2\,lim/e) + 3$ | 8 pt, negrita |
 | Tabla de cotas | 16 | título en $y_v - 12$, filas cada 4.6 mm desde $y_v - 18$ | 3 columnas separadas 62 mm |
 | Cajetín | $420 - 10 - 205 = 205$ | 10 | 205 × 92 |
@@ -161,8 +163,9 @@ Se dibuja en este orden de capas (`zorder`):
 | 3 | Perfil interior | $\pm r_i(x)$, `#5f5e58`, 0.3 |
 | 3 | Uniones (fin de nariz, inicio de transición, inicio de tubo) | segmento vertical de $-r_e$ a $+r_e$, `#5f5e58` 0.4, trazo `(0, (4, 2))` |
 | 3 | Eje | de $x = -6$ a $L+6$ en y = 0, `#5f5e58` 0.4, trazo `(0, (10, 2, 2, 2))` |
-| 6 | Herraje (cada `masas_puntuales`) | cuadrado negro de 4 × 4 mm centrado en $(x, 0)$; nombre con guion bajo → espacio, 5.5 pt, línea guía hasta $y = -0.55R$ |
-| 7 | CG | círculo blanco (ms 6, borde 1.0) con una cruz a 45° encima; texto "CG xxx.x" 3 mm debajo |
+| 6 | Herraje de remolque (`x_mm: cg`) | **en el CG**: línea de amarre vertical `#1f1f1e` 0.8 de $(x_{CG}, 0)$ a $(x_{CG}, r_e(x_{CG}) + 3)$ y rectángulo negro de 5 × 3.5 mm desde $(x_{CG} - 2.5,\ r_e - 0.5)$ sobre la piel superior |
+| 6 | Otras masas puntuales de $x$ fijo | cuadrado negro de 4 × 4 mm centrado en $(x, 0)$; nombre con guion bajo → espacio, 5.5 pt, línea guía hasta $y = -0.55R$ |
+| 7 | CG | círculo blanco (ms 6, borde 1.0) con una cruz a 45° encima; texto "CG xxx.x = amarre (herraje)" alineado a la izquierda en $(x_{CG}+3, -3)$ |
 | 7 | CP | rombo `#eb6834` (ms 5); texto "CP xxx.x" 3 mm debajo |
 
 Colores (definidos en `exportar.py`): tinta `#1f1f1e`, tinta secundaria `#5f5e58`, rejilla
@@ -202,37 +205,69 @@ Todas las cotas se dibujan con dos funciones (`_Cotas.h` y `_Cotas.v`) con las m
 | `electronica` | horizontal, texto "electrónica 20 @ x = 75" | $R+15$ | desde $r_e$ en los extremos |
 | `plomo_trasero` | horizontal "plomo …" | $R+7$ | desde $r_e$ en los extremos. Si no hay, vale 0 |
 | `SM_D` | horizontal, texto "SM·D = 124.9 (1.25 cal)" | y = 6, de $x_{CG}$ a $x_{CP}$ | sin referencias |
-| `D_ap`, `t_aleta` | texto en la vista posterior | — | — |
+| `H_ap` (altura aparente) | vertical en la vista posterior, en $x = \max(x_{max}, D_{ap}/2) + 6$, de $y_{min}$ a $y_{max}$ de la caja mínima, texto a la derecha | desde el borde derecho de la caja |
+| `D_ap`, `t_aleta`, `ancho_caja` | texto en la vista posterior | — | — |
 | `x_electronica`, `L_electronica` | dentro del texto de `electronica` | — | — |
 
 ---
 
-## 7. Vista posterior (desde popa)
+## 7. Vista posterior (desde popa) y altura aparente
 
+**Altura aparente** $H_{ap}$: la menor altura de una caja que contiene al sensor **acostado** (eje
+horizontal), con libertad de girarlo sobre su eje. La sección transversal es la unión del círculo
+del cuerpo (radio $R$) y de $n$ rectángulos de espesor $t$ entre $r_{tc}$ y $r_{tip}$. El tubo de
+cola y la transición quedan dentro del círculo. Con la aleta 0 a un ángulo $\varphi$ de la vertical:
+
+$$H(\varphi) = \max\big(R,\ y_{max}(\varphi)\big) - \min\big(-R,\ y_{min}(\varphi)\big),\qquad
+H_{ap} = \min_{\varphi \in [0,\,2\pi/n)} H(\varphi)$$
+
+donde $y_{max}$ e $y_{min}$ salen de las 4 esquinas de cada aleta: $r\,u \pm \tfrac{t}{2}\,w$, con
+$r \in \{r_{tc}, r_{tip}\}$, $u = (\sin\varphi_i, \cos\varphi_i)$, $w = (\cos\varphi_i, -\sin\varphi_i)$ y
+$\varphi_i = \varphi + 2\pi i/n$ (`aletas.extremos_seccion`).
+
+Algoritmo (`aletas.altura_aparente`), en este orden:
+1. Se evalúa el giro de vuelo $\varphi_v$ (`geometria_fija.aletas.rotacion_deg`, 45°). Si da
+   $H = 2R$, que es la cota inferior, ese es el mínimo y se usa.
+2. Si no, se muestrea un periodo $[\varphi_v, \varphi_v + 2\pi/n)$ con `numerico.n_rotacion_caja`
+   (720) puntos.
+3. Se refina con `minimize_scalar` acotado a $\pm$ un paso alrededor del mejor punto
+   (`xatol` = 10⁻¹⁰).
+4. Si el giro de vuelo empata con el mínimo, se prefiere el giro de vuelo.
+
+Con 4 aletas el mínimo está a 45°, y
+
+$$H_{ap} = \max\Big(2R,\ \sqrt2\,\big(r_{tip} + \tfrac{t}{2}\big)\Big)$$
+
+así que las aletas no suben la caja mientras $r_{tip} \le \sqrt2\,R - t/2$ ($\approx$ 1.38 R con
+D = 100 mm). Con el tope de 1.2 R de la spec, **todos** los candidatos tienen $H_{ap} = D$. El
+ranking guarda `H_ap_mm`, `ancho_caja_mm` y `giro_caja_deg`.
+
+**Dibujo de la vista posterior:**
 - Círculo del cuerpo de radio $R$: relleno `#e4e3df`, borde 0.8.
 - Círculo del tubo de cola de radio $r_{tc}$: relleno `#fcfcfb`, borde 0.6.
-- Ejes en cruz hasta $\pm 0.9\,lim$, 0.3, trazo `(0, (10, 2, 2, 2))`.
-- Cada aleta $i = 0…n-1$ con ángulo $\varphi_i = \varphi_0 + 2\pi i/n$, $\varphi_0$ =
-  `geometria_fija.aletas.rotacion_deg` (45°), medido desde la vertical: rectángulo de $r_{tc}$ a
-  $r_{tip}$ en la dirección $u = (\sin\varphi, \cos\varphi)$ y de espesor $t$ (3 mm) centrado.
-  Relleno `#eda100`, borde 0.5.
+- Ejes en cruz hasta $\pm(R_{max}+6)$, 0.3, trazo `(0, (10, 2, 2, 2))`.
+- Aletas dibujadas **con el giro de la caja mínima** $\varphi^*$, que con 4 aletas coincide con el de
+  vuelo (45°): rectángulos de $r_{tc}$ a $r_{tip}$ y espesor $t$; relleno `#eda100`, borde 0.5.
 - Círculo del D aparente $2\max(R, r_{tip})$: `#eb6834` 0.8, trazo `(0, (5, 3))`, rotulado
   "D_ap = 120" 2 mm encima.
-- Pie: "4 aletas a 45° · t = 3 · r_tip = 60.0".
-
----
+- **Caja mínima:** rectángulo `#2a78d6` 0.8, trazo `(0, (5, 3))`, de $(x_{min}, y_{min})$ a
+  $(x_{max}, y_{max})$ con el giro $\varphi^*$. Cota vertical "H_ap 100" en
+  $x = \max(x_{max}, D_{ap}/2) + 6$.
+- Pie, de abajo hacia arriba:
+  - en $y = -lim + 2$: "4 aletas a 45° de la vertical · t = 3 · r_tip = 60.0";
+  - en $y = -lim + 8$, en azul: "caja mínima (azul): alto H_ap = 100 · ancho = 100".
 
 ## 8. Tabla de cotas, cajetín y notas
 
 **Tabla "COTAS [mm]"**, en este orden, repartida en 3 columnas de $\lceil n/3\rceil$ filas: L total,
 L_n nariz, L_c cuerpo cilíndrico, L_t transición, L_tc tubo de cola, D cuerpo, d_tc tubo de cola,
-D_ap aparente, c_r cuerda de raíz, c_t cuerda de punta, x_s flecha, h envergadura, t espesor de
+D_ap aparente, H_ap altura aparente (caja mín.), ancho de la caja mínima, c_r cuerda de raíz, c_t cuerda de punta, x_s flecha, h envergadura, t espesor de
 aleta, tapón de plomo delantero, tapón de plomo trasero, x inicio de la electrónica, largo de la
 electrónica, brazo SM·D (CG → CP). Nombre a la izquierda (6.4 pt, gris) y valor alineado a la
 derecha 52 mm después. Los valores son **los mismos textos** que en las vistas.
 
 **Cajetín** (205 × 92 mm): título en negrita (7.5 pt) sobre fondo `#e4e3df`, "Sensor remolcado tipo
-2 · DBF 2026-27 (UPB) · plano de optimización", y 15 filas de igual alto (6.2 pt), con el rótulo en
+2 · DBF 2026-27 (UPB) · plano de optimización", y 16 filas de igual alto (6.2 pt), con el rótulo en
 gris hasta x = 0.32 y el valor desde 0.33:
 
 | Fila | Valor | Fuente |
@@ -242,7 +277,8 @@ gris hasta x = 0.32 y el valor desde 0.33:
 | Masa total | `.1f` g (con "(en su SM máximo)" si es infactible) | estado |
 | casco / aletas | `.1f` g / `.1f` g | `Cuerpo.m_casco`, `GeomAleta.masa` |
 | plomo delantero / trasero | `.1f` g / `.1f` g | $\rho_{Pb}\forall$ de cada tapón |
-| electrónica / herraje | `.1f` g / `.1f` g | configuración |
+| electrónica / herraje (en el CG) | `.1f` g / `.1f` g | configuración |
+| D aparente · altura aparente | "120.0 mm · 100.0 mm (caja mín. 400 × 100.0 × 100.0 mm)": $D_{ap}$, $H_{ap}$ y la caja $L$ × ancho × $H_{ap}$ | §7 |
 | x_CG / x_CP (desde la punta) | `.1f` / `.1f` mm | estado |
 | SM · C_Nα | `.3f` cal · `.3f` | estado y `CN_alpha_total` de la fila |
 | Tolerancia de amarre | `.2f` mm | llenado |
@@ -283,12 +319,14 @@ lateral, y "INFACTIBLE · falla: …" en 9 pt negrita, 4 mm debajo de la vista.
 ## 10. Controles
 
 - `pytest tests/test_scripts.py`:
-  - **T11:** existen el PNG y el PDF, y cada cota dibujada coincide con su columna del ranking
-    (±0.05 mm; `planos.COL_RANKING` da la correspondencia);
+  - **T11:** existen el PNG y el PDF, y cada cota dibujada, H_ap incluida, coincide con su
+    columna del ranking (±0.05 mm; `planos.COL_RANKING` da la correspondencia);
   - **T13:** no se escribe ningún `.ork`;
   - **`test_planos_reproducibles_byte_a_byte`:** dos dibujos del mismo candidato tienen el mismo
     sha256.
 - `sha256sum -c` con las huellas de `docs/planos/` (§1).
+- `pytest tests/test_aletas.py`: la altura aparente no supera el mínimo de una búsqueda exhaustiva
+  cada 0.01° (n = 3, 4, 6, 8) y cumple la fórmula de 4 aletas.
 - Revisión visual: ninguna cota tapa a otra, las aletas quedan dentro del círculo de D_ap, el
   rayado del plomo no invade la pared y el cajetín no se sale del marco.
 
@@ -296,7 +334,7 @@ lateral, y "INFACTIBLE · falla: …" en 9 pt negrita, 4 mm debajo de la vista.
 
 ## 11. Para pedírselo a otra sesión de Claude Code
 
-> En el repo `Santyrios514/sensor-tipo2`, rama `claude/sensor-tipo2-v2r2`, sigue
+> En el repo `Santyrios514/sensor-tipo2`, rama `main`, sigue
 > `docs/METODOLOGIA_PLANOS.md` §1 al pie de la letra: instala `requirements-lock.txt`, borra
 > `data_opt/`, `figs_opt/` y `planos/`, corre los scripts 01, 03, 02 y 04 en ese orden con los
 > `--cand` indicados y verifica las dos listas de huellas con `sha256sum -c`. No cambies el código

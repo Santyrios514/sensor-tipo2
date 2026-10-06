@@ -2,7 +2,10 @@
 
 Con la electrónica detrás del tapón delantero (x_e = x_b0 + ℓ + holgura):
 
-    x_CG(ℓ) = (M_0 + ρ_b Φ1(ℓ) + m_e x̄_e(ℓ)) / (m_0 + ρ_b ∀(ℓ) + m_e),     SM = (x_CP − x_CG) / D
+    x_CG(ℓ) = (M_0 + ρ_b Φ1(ℓ) + m_e x̄_e(ℓ)) / (m_0 − m_cg + ρ_b ∀(ℓ) + m_e),     SM = (x_CP − x_CG) / D
+
+m_0 incluye las masas que van en el CG (el herraje de remolque, `x_mm: cg`); como están en el CG,
+suman masa (y entran en la tolerancia del amarre) pero no lo mueven: M_0 no las incluye.
 
 Orden de llenado (el de `sensor_lastre._analizar_relleno`):
 
@@ -50,6 +53,7 @@ class ModeloLastre:
     fll: float
     margen_popa: float
     x_e_min: float = -math.inf  # inicio del tramo admisible de la electrónica (electronica.r_min_mm)
+    m_cg: float = 0.0  # masas que van en el CG (herraje de remolque): suman masa pero no mueven el CG
 
     @property
     def ell_cavidad(self) -> float:
@@ -75,8 +79,9 @@ class ModeloLastre:
         return self.m0 + self.m_b(ell) + self.el.me
 
     def x_CG(self, ell):
+        """CG del sensor. Una masa en el CG no lo mueve: x_CG = momento / (m − m_cg)."""
         num = self.M0 + self.rho_b * self.Phi1(ell) + self.el.me * self.el.x_cg(self.x_e(ell))
-        return num / self.m(ell)
+        return num / (self.m(ell) - self.m_cg)
 
     # --- tapón trasero: desde x_r0(ℓ), detrás de la electrónica, hacia popa
     def x_r0(self, ell):
@@ -95,7 +100,8 @@ class ModeloLastre:
     def x_CG_con_trasero(self, ell, ell2):
         a = self.x_r0(ell)
         M_tras = self.rho_b * self.fll * self.cav.mom(a, a + np.asarray(ell2, dtype=float))
-        return (self.x_CG(ell) * self.m(ell) + M_tras) / self.m_con_trasero(ell, ell2)
+        return ((self.x_CG(ell) * (self.m(ell) - self.m_cg) + M_tras)
+                / (self.m_con_trasero(ell, ell2) - self.m_cg))
 
     def ell2_por_SM(self, ell, x_CP: float, D: float, SM_min: float, tol: float) -> float:
         l2max = self.ell2_max(ell)
@@ -228,7 +234,8 @@ def llenar(cfg: ConfigOpt, cu: Cuerpo, m_aletas: float, x_aletas: float, x_CP: f
     SM_min = rest.SM_min
     mod = ModeloLastre(cav=cu.cav, m0=cu.m_casco + m_aletas + cu.m_puntuales,
                        M0=cu.M_casco + m_aletas * x_aletas + cu.M_puntuales, el=cfg.electronica,
-                       x_b0=cu.x_b0, rho_b=la.rho_b, fll=la.fll, margen_popa=la.margen_popa, x_e_min=cu.lim.x_e_a)
+                       x_b0=cu.x_b0, rho_b=la.rho_b, fll=la.fll, margen_popa=la.margen_popa, x_e_min=cu.lim.x_e_a,
+                       m_cg=cu.m_puntuales_cg)
     Ll = Llenado(modelo=mod)
     ell_geo = cu.lim.ell_geo
     if not ell_geo > 0:
