@@ -1,5 +1,6 @@
 """Llenado de lastre: restricciones del criterio de dbf-sensor sobre candidatos reales."""
 
+import math
 
 import pytest
 
@@ -9,13 +10,15 @@ from sensor_tipo2.geometria import construir_cuerpo
 from sensor_tipo2.lastre import llenar
 from sensor_tipo2.sustituto import cp_sustituto
 
-CUERPO = CuerpoSpec(400, 80, 1.0, "elipsoide", None, 0.8, 0.4, 60)
+from .conftest import FACTIBLE
+
+CUERPO, ALETA = CuerpoSpec(*FACTIBLE[0]), AletaSpec(*FACTIBLE[1])
 
 
-def _llenar(cfg, a=AletaSpec(1.0, 0.7, 1.0, 2.0), c=CUERPO):
+def _llenar(cfg, a=ALETA, c=CUERPO, exigir=True):
     cu = construir_cuerpo(cfg, c)
     g, mot = construir(cfg, cu.perfil, a)
-    assert not mot
+    assert not (exigir and mot), mot
     cp, m = cp_sustituto(cu, g, cfg.vuelo.mach, 48, cfg.restricciones.eps_CN)
     return cu, cp, llenar(cfg, cu, g.masa, g.x_cg, cp.x_CP, cp.CNa)
 
@@ -59,10 +62,82 @@ def test_sin_tolerancia_de_amarre_limita_SM_o_volumen(raw):
     assert Ll.ok and Ll.restriccion_activa in ("SM_min", "volumen")
 
 
-def test_aletas_dentro_del_diametro_no_estabilizan(cfg, base_ork):
-    """Con r_tip = R el CP queda delante de la nariz: ni un lastre infinitamente denso da SM ≥ 1."""
+def test_cuerpo_del_ork_con_aletas_en_el_calibre_no_estabiliza(cfg_libre, base_ork):
+    """Con el cuerpo del .ork (tubo de 50 mm) y r_tip = R el CP queda delante de la nariz."""
     c, a = base_ork
-    cu, cp, Ll = _llenar(cfg, a, c)
+    cu, cp, Ll = _llenar(cfg_libre, a, c)
     assert cp.x_CP < 0
     assert not Ll.ok and "SM_inalcanzable_por_geometria" in Ll.banderas
-    assert Ll.fila["SM_inf_cal"] < cfg.restricciones.SM_min
+    assert Ll.fila["SM_inf_cal"] < cfg_libre.restricciones.SM_min
+
+
+def test_tubo_largo_estabiliza_con_aletas_en_el_calibre(cfg):
+    """Spec v2 §2: la transición (−) y las aletas (+) separadas por un tubo largo forman un par que
+    mueve el CP atrás aunque su fuerza neta siga siendo negativa. Con r_tip = R hay llenado factible."""
+    cu, cp, Ll = _llenar(cfg, AletaSpec(0.7, 0.7, 1.0, 1.0), CUERPO)
+    neta = sum(p.CNa for p in cp.partes if p.nombre in ("cola", "aletas"))
+    assert neta < 0 and cp.x_CP > 0.4 * cu.perfil.L
+    assert Ll.ok
+
+
+# --------------------------------------------------------------------------- T2: llenado idéntico a v1
+
+
+def test_T2_llenado_identico_a_la_version_anterior():
+    """230 candidatos con L_c > 0 calculados con el código anterior a la spec v2 (4affe21):
+    con electronica.r_min_mm = null el llenado da lo mismo."""
+    import pandas as pd
+    from pathlib import Path
+    from .conftest import raw_libre
+    ref = pd.read_csv(Path(__file__).parent / "datos" / "llenado_v1.csv", keep_default_na=True)
+    raw = raw_libre()
+    raw["masa"]["m_max_g"] = 10150  # la masa de la configuración v1 con la que se generaron
+    raw["restricciones"]["cola_base_roma"]["infactible"] = False
+    cfg = cargar(raw)
+    assert cfg.electronica.r_min is None
+    for _, r in ref.iterrows():
+        Ln = r.L_n_rel_D * r.D_mm
+        L_disp = r.L_mm - Ln - r.L_tc_mm
+        par = None if pd.isna(r.parametro) else float(r.parametro)
+        c = CuerpoSpec(r.L_mm, r.D_mm, r.L_n_rel_D, r.forma, par, (L_disp - r.L_t_mm) / L_disp, r.d_tc_mm, r.L_tc_mm)
+        cu, cp, Ll = _llenar(cfg, AletaSpec(r.mu_cr, r.gamma_ct, r.sigma_flecha, r.r_tip_rel_R), c, exigir=False)
+        assert cp.x_CP * 1e3 == pytest.approx(r.x_CP_mm, abs=1e-6)
+        assert Ll.ok == r.ok and Ll.restriccion_activa == r.restriccion
+        assert ";".join(Ll.banderas) == ("" if pd.isna(r.banderas) else r.banderas)
+        for k in ("m_total_g", "SM_cal", "x_CG_mm", "tol_amarre_mm", "ell_mm", "ell_trasero_mm", "SM_inf_cal"):
+            v = Ll.fila.get(k, math.nan)
+            # SM_inf (informativo) sale de minimize_scalar con xatol = 0.01 mm: un redondeo de 1e-16 en
+            # L_t (ahora desde f_c) cambia su ruta; el llenado en sí coincide a 1e-7
+            tol = {"rel": 1e-5, "abs": 1e-4} if k == "SM_inf_cal" else {"rel": 1e-7, "abs": 1e-6}
+            assert (math.isnan(v) and math.isnan(r[k])) or v == pytest.approx(r[k], **tol), k
+
+
+# --------------------------------------------------------------------------- T5: electrónica con r_min
+
+
+@pytest.mark.parametrize("r_min_mm", [20.0, 30.0, 40.0])
+def test_T5_electronica_en_tramo_con_radio_suficiente(raw, r_min_mm):
+    raw["electronica"]["r_min_mm"] = r_min_mm
+    cfg = cargar(raw)
+    for fc in (0.0, 0.5):
+        c = CuerpoSpec(400, 90, 1.0, "conica", None, fc, 15.75, 140)
+        cu = construir_cuerpo(cfg, c)
+        assert cu.ok, cu.motivos
+        g, _ = construir(cfg, cu.perfil, ALETA)
+        cp, _ = cp_sustituto(cu, g, cfg.vuelo.mach, 48, cfg.restricciones.eps_CN)
+        Ll = llenar(cfg, cu, g.masa, g.x_cg, cp.x_CP, cp.CNa)
+        if not math.isfinite(Ll.ell):
+            continue
+        x_e = float(Ll.modelo.x_e(Ll.ell))
+        tramo = (cu.cav.x >= x_e) & (cu.cav.x <= x_e + cfg.electronica.Le)
+        assert cu.cav.r_i[tramo].min() >= r_min_mm * 1e-3 - 1e-9
+
+
+def test_T5_electronica_que_no_cabe(raw):
+    raw["electronica"]["r_min_mm"] = 60.0  # más que el radio interior de cualquier cuerpo de D = 90
+    cfg = cargar(raw)
+    cu = construir_cuerpo(cfg, CuerpoSpec(400, 90, 1.0, "conica", None, 0.0, 15.75, 140))
+    assert cu.motivos == ["electronica_no_cabe"]
+    from sensor_tipo2.barrido import evaluar_cuerpo
+    f = evaluar_cuerpo(cfg, cu.spec, [ALETA])[0]
+    assert not f["factible"] and f["motivos"] == "electronica_no_cabe"

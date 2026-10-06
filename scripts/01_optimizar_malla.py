@@ -41,10 +41,13 @@ def main(argv=None) -> int:
         print(e, file=sys.stderr)
         return 2
     n_c, n_a = len(cfg.cuerpos()), len(cfg.aletas())
-    n = n_c * n_a
     procesos = a.procesos or cfg.procesos
     lim = int(cfg.ejecucion.get("max_evaluaciones", 2_000_000))
-    print(f"Malla: {n_c:,} cuerpos × {n_a} aletas = {n:,} evaluaciones (límite {lim:,}); {procesos} procesos.")
+    grupos = barrido.grupos_malla(cfg)
+    n = barrido.n_candidatos(grupos)
+    print(f"Malla: {n_c:,} cuerpos × {n_a} aletas = {n_c * n_a:,} candidatos.")
+    print(f"Tras descartar los geométricamente imposibles: {len(grupos):,} cuerpos, {n:,} candidatos "
+          f"(límite {lim:,}); {procesos} procesos.")
     print(f"Estimado: ~{n * 1.2e-3 / procesos / 60:.1f} min a ~1.2 ms por candidato (sin refinamiento).")
     if n > lim and not a.forzar:
         largos = sorted(((len(v), k) for k, v in cfg.malla.items() if isinstance(v, list)), reverse=True)[:3]
@@ -58,7 +61,7 @@ def main(argv=None) -> int:
         if i == total or i % max(1, total // 20) == 0:
             print(f"  {i}/{total} cuerpos · {time.time() - t0:.0f} s", flush=True)
 
-    df = barrido.optimizar(cfg, refinar=not a.sin_refinamiento, procesos=procesos, progreso=progreso)
+    df = barrido.optimizar(cfg, refinar=not a.sin_refinamiento, procesos=procesos, progreso=progreso, grupos=grupos)
     dir_d, dir_f = cfg.dir_salida(), cfg.dir_figuras()
     exportar.exportar_ranking(cfg, df, dir_d)
     fac = df[df["factible"]]
@@ -73,11 +76,13 @@ def main(argv=None) -> int:
         g = fac.iloc[0]
         print(f"\nMejor (CP sustituto, sin verificar): {g['cand_id']}\n"
               f"  m_total {g['m_total_g']:.0f} g (plomo {g['m_lastre_g']:.0f} g) · D {g['D_mm']:.1f} mm · "
-              f"d_tc {g['d_tc_mm']:.1f} mm · D_ap {g['D_ap_mm']:.1f} mm (r_tip/R = {g['r_tip_rel_R']:g}) · "
-              f"SM {g['SM_cal']:.2f} · tol. amarre {g['tol_amarre_mm']:.2f} mm · restricción activa: "
-              f"{g['restriccion_activa']}")
-        r1 = df[(df["r_tip_rel_R"] <= 1.0 + 1e-9)]
-        print(f"  Con aletas dentro del diámetro (r_tip ≤ R): {int(r1['factible'].sum())} factibles de {len(r1):,}.")
+              f"d_tc {g['d_tc_mm']:.1f} mm · D acostado {g['D_acostado_mm']:.1f} mm · D aparente {g['D_ap_mm']:.1f} mm "
+              f"(r_tip/R = {g['r_tip_rel_R']:g}) · SM {g['SM_cal']:.2f} · tol. amarre {g['tol_amarre_mm']:.2f} mm · "
+              f"restricción activa: {g['restriccion_activa']}")
+        fr = exportar.frontera(df)
+        print("\nMasa máxima factible por diámetro (frontera_masa_D.csv):")
+        print(fr[["D_mm", "D_acostado_mm", "m_total_g", "SM_cal", "tol_amarre_mm", "restriccion_activa"]]
+              .to_string(index=False, float_format=lambda v: f"{v:.2f}"))
     if not a.sin_figuras:
         rutas = exportar.figuras_barrido(cfg, df, dir_f)
         print(f"\n{len(rutas)} figuras → {dir_f}")
