@@ -150,3 +150,26 @@ def test_validar_ganadores_sin_ork(puente, cfg, tmp_path):
     res2 = validar_ganadores(estricta, puente, rk, log=lambda *_: None)
     assert res2.ganador is None and len(res2.cp_fuera_de_tolerancia) == 2
     assert not list(tmp_path.rglob("*.ork"))
+
+
+def test_script_05_tolerancia_amarre_de_un_ork(puente, cfg, tmp_path):
+    """scripts/05_tolerancia_amarre.py sobre un .ork armado con el puente da la tolerancia del modelo
+    (±0.01 mm) y no avisa del herraje (va en el CG)."""
+    import re
+    import subprocess
+    import sys
+    from sensor_tipo2.config import AletaSpec, CuerpoSpec
+    from sensor_tipo2.exportar import detalle, masas_del_llenado
+    from .conftest import RAIZ
+    det = detalle(cfg, CuerpoSpec(*CANDIDATOS[0][0]), AletaSpec(*CANDIDATOS[0][1]))
+    puente.aplicar(cfg, det)
+    puente.agregar_masas(masas_del_llenado(cfg, det))
+    ruta = tmp_path / "candidato.ork"
+    puente.orl.save_doc(str(ruta), puente.doc)
+    # en otro proceso: JPype no puede volver a arrancar la JVM dentro de la sesión de pytest
+    r = subprocess.run([sys.executable, str(RAIZ / "scripts" / "05_tolerancia_amarre.py"), str(ruta)],
+                       capture_output=True, text=True, timeout=600)
+    assert r.returncode == 0, r.stderr[-2000:]
+    tol = float(re.search(r"Tolerancia de amarre: ([\d.]+) mm", r.stdout).group(1))
+    assert tol == pytest.approx(det.llenado.fila["tol_amarre_mm"], abs=0.01)
+    assert "herraje está en" not in r.stdout

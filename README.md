@@ -312,6 +312,7 @@ python scripts/01_optimizar_malla.py           # ranking (≈ 30 s) [--config ..
 python scripts/03_frontera_factibilidad.py     # frontera r_tip/R × n, masa vs L_tc (≈ 3 min) [--gruesa]
 python scripts/02_validar_ganadores.py         # opcional, OpenRocket [--cand ID ...]
 python scripts/04_planos.py                    # planos PNG + PDF [--cand ID ...] [--n N]
+python scripts/05_tolerancia_amarre.py x.ork   # tolerancia de amarre de cualquier .ork (OpenRocket) [--mach M]
 pytest                                         # los de OpenRocket se saltan sin java/orlab
 ```
 

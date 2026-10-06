@@ -302,3 +302,64 @@ def validar_ganadores(cfg: ConfigOpt, pr: PuenteTipo2, ranking: pd.DataFrame, lo
     ok = tabla[tabla["validado"].fillna(False).astype(bool)] if len(tabla) else tabla
     ganador = None if fuera or ok.empty else str(ok.iloc[0]["cand_id"])
     return ResultadoValidacion(tabla, ganador, fuera)
+
+
+# --------------------------------------------------------------------------- tolerancia de amarre de un .ork
+
+
+@dataclass
+class AmarreOrk:
+    """Tolerancia de amarre de un .ork cualquiera, con el amarre en el CG (trim estático 0)."""
+
+    m: float  # kg (estructura + Mass components)
+    x_CG: float  # m desde la punta
+    x_CP: float  # m desde la punta
+    CNa: float
+    S_ref: float  # m² (referencia de OpenRocket: la del mayor diámetro)
+    D_ref: float  # m
+    mach: float
+    q: float  # Pa
+    alpha_max: float  # rad
+    tol: float  # m
+    advertencias: list[str]
+    L: float = math.nan  # m, largo total
+    x_herraje: list[float] = field(default_factory=list)  # m, Mass components llamados "herraje…"
+
+    @property
+    def SM(self) -> float:
+        return (self.x_CP - self.x_CG) / self.D_ref
+
+
+def tolerancia_amarre_ork(cfg: ConfigOpt, ruta: str | Path, mach: float | None = None) -> AmarreOrk:
+    """Abre un .ork con OpenRocket 24.12 y devuelve su tolerancia de amarre:
+
+        tol = α_max q S_ref C_Nα (x_CP − x_CG) / (m g)
+
+    con la masa y el CG de OpenRocket (estructura y Mass components), el CP y el C_Nα de Barrowman a
+    α = 0 y el Mach, la presión dinámica y α_max de la configuración. No exige la topología del .ork
+    tipo 2: sirve para cualquier cohete que OpenRocket abra."""
+    from .lastre import tolerancia_amarre
+    mach = cfg.vuelo.mach if mach is None else float(mach)
+    with abrir_openrocket(cfg) as pr:
+        rocket = pr.orl.load_doc(str(ruta)).getRocket()
+        fc = rocket.getSelectedConfiguration()
+        cond = pr.core.aerodynamics.FlightConditions(fc)
+        cond.setMach(mach)
+        cond.setAOA(0.0)
+        ws = pr.core.logging.WarningSet()
+        cp = pr.core.aerodynamics.BarrowmanCalculator().getCP(fc, cond, ws)
+        rb = pr.core.masscalc.MassCalculator.calculateStructure(fc)
+        m, x_CG = float(rb.getMass()), float(rb.getCM().x)
+        x_CP, CNa = float(cp.x), float(cp.weight)
+        S_ref, D_ref = float(cond.getRefArea()), float(cond.getRefLength())
+        avisos = [str(w) for w in ws]
+        L = float(fc.getLength())
+        x_h, it = [], rocket.iterator(True)
+        while it.hasNext():
+            c = it.next()
+            if "herraje" in str(c.getName()).lower():
+                x_h.append(float(c.getComponentLocations()[0].x) + float(c.getComponentCG().x))
+    q, a_max = cfg.vuelo.q, cfg.remolque.alpha_max
+    return AmarreOrk(m=m, x_CG=x_CG, x_CP=x_CP, CNa=CNa, S_ref=S_ref, D_ref=D_ref, mach=mach, q=q, alpha_max=a_max,
+                     tol=tolerancia_amarre(m, x_CG, x_CP, q, S_ref, CNa, a_max), advertencias=avisos, L=L,
+                     x_herraje=x_h)
