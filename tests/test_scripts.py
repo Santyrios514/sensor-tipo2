@@ -132,6 +132,20 @@ def test_T11_planos_y_cotas(tmp_path):
     _sin_ork(tmp_path)
 
 
+def test_planos_reproducibles_byte_a_byte(tmp_path):
+    """El mismo candidato da exactamente los mismos bytes en PNG y PDF (sin fecha de creación)."""
+    import hashlib
+    from sensor_tipo2.barrido import optimizar
+    from sensor_tipo2.config import cargar
+    from sensor_tipo2.planos import plano
+    cfg = cargar(malla_chica(raw_opt()))
+    f = optimizar(cfg, refinar=False, procesos=1).iloc[0]
+    a = plano(cfg, f, tmp_path / "a" / "p", puesto=1, dpi=60)
+    b = plano(cfg, f, tmp_path / "b" / "p", puesto=1, dpi=60)
+    for ra, rb in zip(a.rutas, b.rutas):
+        assert hashlib.sha256(ra.read_bytes()).digest() == hashlib.sha256(rb.read_bytes()).digest(), ra.suffix
+
+
 def test_T12_misma_semilla_mismo_ranking():
     from sensor_tipo2.barrido import optimizar
     from sensor_tipo2.config import cargar

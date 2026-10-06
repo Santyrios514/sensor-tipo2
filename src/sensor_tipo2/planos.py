@@ -39,6 +39,9 @@ HOJA_MM = (420.0, 297.0)  # A3 apaisado
 MARCO_MM = 10.0
 ESCALAS = (1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 10.0)  # 1:x normalizadas
 ROJO = "#c8322b"
+# sin fecha de creación: la misma entrada da los mismos bytes (PNG y PDF) en cualquier sesión
+METADATOS_PNG = {"Software": None}
+METADATOS_PDF = {"CreationDate": None, "Producer": None, "Creator": None}
 FUENTE = 6.5  # pt de las cotas
 
 # cota del plano → columna del ranking con el mismo valor (T11)
@@ -439,8 +442,8 @@ def plano(cfg: ConfigOpt, fila: pd.Series, ruta_base: Path, puesto=None, validac
     ruta_base.parent.mkdir(parents=True, exist_ok=True)
     # sin with_suffix: el cand_id tiene puntos (r1.2) que Path tomaría como extensión
     rutas = [ruta_base.parent / f"{ruta_base.name}.png", ruta_base.parent / f"{ruta_base.name}.pdf"]
-    fig.savefig(rutas[0], dpi=dpi)
-    fig.savefig(rutas[1])
+    fig.savefig(rutas[0], dpi=dpi, metadata=METADATOS_PNG)
+    fig.savefig(rutas[1], metadata=METADATOS_PDF)
     plt.close(fig)
     return Plano(rutas=rutas, cotas=cot.d, infactible=infactible)
 
@@ -475,6 +478,6 @@ def comparativo(cfg: ConfigOpt, filas: list[tuple[str, pd.Series]], ruta: Path, 
     ax.grid(color=REJILLA, lw=0.5)
     ax.legend(frameon=False, fontsize=7.5, loc="upper left", bbox_to_anchor=(1.01, 1.0))
     ruta.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(ruta, dpi=dpi)
+    fig.savefig(ruta, dpi=dpi, metadata=METADATOS_PNG)
     plt.close(fig)
     return ruta

@@ -1,0 +1,10 @@
+# Versiones exactas con las que se generaron los planos de docs/planos/ (huellas en docs/planos/SHA256SUMS).
+# Python 3.11.15 · OpenJDK 21.0.11 · OpenRocket-24.12.jar (sha256 4959b72f52f5f607941e9722abbb7b7f0c4a38ebbbf84204a329db9f31c4f897)
+numpy==2.4.6
+scipy==1.17.1
+pandas==3.0.6
+PyYAML==6.0.1
+matplotlib==3.11.2
+pytest==9.1.1
+orlab==0.10.0
+JPype1==1.7.1

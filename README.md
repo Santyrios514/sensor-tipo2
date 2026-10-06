@@ -263,6 +263,11 @@ con OpenRocket o "sin validar"). Además, `planos/comparativo_top.png` (siluetas
 `data_opt/rankNN_perfil.csv` ($x$, $r_e$, $r_i$ y polígono de la aleta) para CAD/CFD. Sin
 factibles, dibuja los 3 primeros casi factibles con el rótulo INFACTIBLE.
 
+Los planos son deterministas: la misma entrada da los mismos bytes en PNG y PDF (sin fecha de
+creación incrustada). La metodología completa, las versiones exactas (`requirements-lock.txt`) y
+las huellas de referencia (`docs/planos/SHA256SUMS`) están en
+[`docs/METODOLOGIA_PLANOS.md`](docs/METODOLOGIA_PLANOS.md).
+
 ## Validación del modelo
 
 | Comparación | Diferencia |
