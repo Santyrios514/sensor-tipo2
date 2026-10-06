@@ -323,7 +323,9 @@ class AmarreOrk:
     tol: float  # m
     advertencias: list[str]
     L: float = math.nan  # m, largo total
-    x_herraje: list[float] = field(default_factory=list)  # m, Mass components llamados "herraje…"
+    x_herraje: list[float] = field(default_factory=list)  # m, donde estaba cada herraje en el .ork
+    m_herraje: float = 0.0  # kg, masa de los herrajes (se llevan al CG)
+    x_CG_ork: float = math.nan  # m, CG tal como viene en el .ork (herraje donde estaba)
 
     @property
     def SM(self) -> float:
@@ -337,7 +339,12 @@ def tolerancia_amarre_ork(cfg: ConfigOpt, ruta: str | Path, mach: float | None =
 
     con la masa y el CG de OpenRocket (estructura y Mass components), el CP y el C_Nα de Barrowman a
     α = 0 y el Mach, la presión dinámica y α_max de la configuración. No exige la topología del .ork
-    tipo 2: sirve para cualquier cohete que OpenRocket abra."""
+    tipo 2: sirve para cualquier cohete que OpenRocket abra.
+
+    El herraje de remolque (Mass components cuyo nombre contiene "herraje") va siempre en el CG, como
+    en el modelo: su masa cuenta, pero no su momento, esté donde esté en el .ork:
+
+        x_CG = (m x_CG,ork − Σ m_h x_h) / (m − Σ m_h)"""
     from .lastre import tolerancia_amarre
     mach = cfg.vuelo.mach if mach is None else float(mach)
     with abrir_openrocket(cfg) as pr:
@@ -354,12 +361,16 @@ def tolerancia_amarre_ork(cfg: ConfigOpt, ruta: str | Path, mach: float | None =
         S_ref, D_ref = float(cond.getRefArea()), float(cond.getRefLength())
         avisos = [str(w) for w in ws]
         L = float(fc.getLength())
-        x_h, it = [], rocket.iterator(True)
+        x_h, m_h, it = [], [], rocket.iterator(True)
         while it.hasNext():
             c = it.next()
             if "herraje" in str(c.getName()).lower():
                 x_h.append(float(c.getComponentLocations()[0].x) + float(c.getComponentCG().x))
+                m_h.append(float(c.getComponentMass()))
+    x_CG_ork = x_CG
+    if m_h:  # el herraje va en el CG: se quita su momento
+        x_CG = (m * x_CG_ork - sum(mi * xi for mi, xi in zip(m_h, x_h))) / (m - sum(m_h))
     q, a_max = cfg.vuelo.q, cfg.remolque.alpha_max
     return AmarreOrk(m=m, x_CG=x_CG, x_CP=x_CP, CNa=CNa, S_ref=S_ref, D_ref=D_ref, mach=mach, q=q, alpha_max=a_max,
                      tol=tolerancia_amarre(m, x_CG, x_CP, q, S_ref, CNa, a_max), advertencias=avisos, L=L,
-                     x_herraje=x_h)
+                     x_herraje=x_h, m_herraje=sum(m_h), x_CG_ork=x_CG_ork)
