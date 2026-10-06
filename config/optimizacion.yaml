@@ -144,6 +144,7 @@ numerico:
   n_barrido_ell: 600
   tol_raiz_mm: 0.01
   n_franjas_aleta: 48
+  n_rotacion_caja: 720          # muestras del giro (en un periodo 360°/n) para la altura aparente
   tol_masa_max_g: 0.5           # (OpenRocket 24.12 acepta un BodyTube de largo 0: el cuerpo abombado no
                                 # necesita un largo mínimo)
 

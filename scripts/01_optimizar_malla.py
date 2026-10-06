@@ -76,7 +76,7 @@ def main(argv=None) -> int:
         g = fac.iloc[0]
         print(f"\nMejor (CP sustituto, sin verificar): {g['cand_id']}\n"
               f"  m_total {g['m_total_g']:.0f} g (plomo {g['m_lastre_g']:.0f} g) · D {g['D_mm']:.1f} mm · "
-              f"d_tc {g['d_tc_mm']:.1f} mm · D acostado {g['D_acostado_mm']:.1f} mm · D aparente {g['D_ap_mm']:.1f} mm "
+              f"d_tc {g['d_tc_mm']:.1f} mm · D aparente {g['D_ap_mm']:.1f} mm · altura aparente {g['H_ap_mm']:.1f} mm "
               f"(r_tip/R = {g['r_tip_rel_R']:g}) · SM {g['SM_cal']:.2f} · tol. amarre {g['tol_amarre_mm']:.2f} mm · "
               f"restricción activa: {g['restriccion_activa']}")
         fr = exportar.frontera(df)

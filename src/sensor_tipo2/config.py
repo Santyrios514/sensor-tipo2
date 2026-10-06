@@ -258,6 +258,7 @@ class Numerico:
     tol: float
     n_franjas: int
     tol_masa_max: float  # kg
+    n_rotacion_caja: int = 720  # muestras del giro para la altura aparente (caja mínima)
 
 
 @dataclass
@@ -597,7 +598,8 @@ def cargar(ruta: str | Path | dict, raiz: Path | None = None) -> ConfigOpt:
     nu = raw.get("numerico") or {}
     numerico = Numerico(dx=float(nu.get("dx_mm", 0.1)) * MM, n_ell=int(nu.get("n_barrido_ell", 600)),
                         tol=float(nu.get("tol_raiz_mm", 0.01)) * MM, n_franjas=int(nu.get("n_franjas_aleta", 48)),
-                        tol_masa_max=float(nu.get("tol_masa_max_g", 0.5)) * G)
+                        tol_masa_max=float(nu.get("tol_masa_max_g", 0.5)) * G,
+                        n_rotacion_caja=int(nu.get("n_rotacion_caja", 720)))
     if not numerico.dx > 0:
         errores.append("numerico.dx_mm debe ser > 0")
     if errores:

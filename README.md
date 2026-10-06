@@ -38,7 +38,7 @@ Plano en A3, escala 1:2: [`docs/planos/rank01_…_r1.2.pdf`](docs/planos/rank01_
 | Cuerpo | **abombado** ($f_c = 0$, $L_c = 0$): nariz elipsoide de 100 mm + transición cónica de 140 mm |
 | Tubo de cola | Ø 15 × 160 mm ($k = 0.15$: en los mínimos `k_min` y `d_tc_min_mm`) |
 | Aletas (4, Onyx 3 mm) | $c_r$ 112, $c_t$ 67.2, flecha 44.8, $h$ 52.5 mm; $r_{tip}$ = 60 mm = **1.2 R**; AR 0.59 |
-| D / D aparente | 100 / **120 mm** |
+| D / D aparente / altura aparente | 100 / **120** / **100 mm** (caja mínima 400 × 100 × 100 mm) |
 | Masa total | **8026 g**: plomo 7652 g (3228 delante de la electrónica + 4425 detrás), casco 141 g, aletas 68 g, electrónica 150 g, herraje 15 g |
 | Electrónica | de x = 75 a 95 mm, dentro de la nariz ($r_i \ge 46$ mm) |
 | $x_{CG}$ modelo / OpenRocket | 99.92 / 99.92 mm |
@@ -256,12 +256,20 @@ config/optimizacion.yaml ──► 01_optimizar_malla.py ──► data_opt/rank
 Uno por cada uno de los `salida.N_planos` mejores (y por cada `--cand`), en `planos/rankNN_<cand_id>.png`
 (300 dpi) y `.pdf` (vectorial): hoja A3 a la mayor escala normalizada que cabe (1:2 con L = 400 mm),
 con vista lateral en corte (pared por capas, tapones de plomo rayados, electrónica, herraje, tubo y
-aletas en verdadera magnitud, CG y CP con el brazo SM·D acotado), vista posterior (aletas con su
-rotación y círculo del D aparente), cotas en mm, tabla de cotas, barra de escala y cajetín (masas,
+aletas en verdadera magnitud, CG y CP con el brazo SM·D acotado), vista posterior (aletas, círculo
+del D aparente y **caja mínima** con la altura aparente acotada), cotas en mm, tabla de cotas, barra de escala y cajetín (masas,
 estabilidad, $\theta_{eq}$, AR, $V_{flutter}$, restricción activa, banderas y la línea de validación
 con OpenRocket o "sin validar"). Además, `planos/comparativo_top.png` (siluetas superpuestas) y
 `data_opt/rankNN_perfil.csv` ($x$, $r_e$, $r_i$ y polígono de la aleta) para CAD/CFD. Sin
 factibles, dibuja los 3 primeros casi factibles con el rótulo INFACTIBLE.
+
+**Altura aparente** $H_{ap}$: la menor altura de una caja que contiene al sensor acostado, girándolo
+sobre su eje y contando el espesor real de las aletas,
+$H_{ap} = \min_\varphi\,[y_{max}(\varphi) - y_{min}(\varphi)]$. Con 4 aletas el mínimo está a 45° y
+$H_{ap} = \max\big(2R,\ \sqrt2\,(r_{tip} + t/2)\big)$: las aletas no suben la caja mientras
+$r_{tip} \le \sqrt2\,R - t/2$ (≈ 1.38 R). Con el tope de 1.2 R **todos los candidatos tienen
+$H_{ap} = D$**; el ganador cabe en una caja de 400 × 100 × 100 mm, aunque su D aparente frontal sea
+de 120 mm. Está en el ranking (`H_ap_mm`, `ancho_caja_mm`, `giro_caja_deg`).
 
 Los planos son deterministas: la misma entrada da los mismos bytes en PNG y PDF (sin fecha de
 creación incrustada). La metodología completa, las versiones exactas (`requirements-lock.txt`) y
