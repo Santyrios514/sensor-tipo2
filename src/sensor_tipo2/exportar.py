@@ -98,7 +98,8 @@ def masas_del_llenado(cfg: ConfigOpt, det: Detalle) -> list[tuple[str, float, fl
         M2 = float(mod.fll * mod.cav.mom(a, a + Ll.ell2))
         out.append(("lastre_trasero", mod.rho_b * V2, M2 / V2))
     out.append(("electronica", cfg.electronica.me, float(cfg.electronica.x_cg(mod.x_e(Ll.ell)))))
-    out += [(p.nombre, p.m, p.x) for p in cfg.puntuales]
+    x_cg = float(mod.x_CG_con_trasero(Ll.ell, Ll.ell2))  # el herraje (x_mm: cg) va en el CG final
+    out += [(p.nombre, p.m, x_cg if p.en_cg else p.x) for p in cfg.puntuales]
     return out
 
 

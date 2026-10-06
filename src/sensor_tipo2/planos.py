@@ -189,6 +189,15 @@ def _vista_lateral(ax, cfg: ConfigOpt, det: Detalle, est: Estado | None, cot: _C
         ax.text((est.x_e / MM + Le / 2), 0, "electrónica", rotation=90, ha="center", va="center", fontsize=5.5,
                 color=TINTA, zorder=6)
     for pm in cfg.puntuales:
+        if pm.en_cg:
+            if est is None:
+                continue
+            # herraje de remolque en el CG: línea de amarre del CG a la piel superior y el herraje sobre ella
+            xh = est.x_CG / MM
+            rs = float(np.interp(est.x_CG, cav.x, cav.r_e)) / MM
+            ax.plot([xh, xh], [0, rs + 3.0], color=TINTA, lw=0.8, zorder=6)
+            ax.add_patch(Rectangle((xh - 2.5, rs - 0.5), 5, 3.5, fc=TINTA, ec="none", zorder=6))
+            continue
         ax.add_patch(Rectangle((pm.x / MM - 2, -2), 4, 4, fc=TINTA, ec="none", zorder=6))
         ax.annotate(pm.nombre.replace("_", " "), (pm.x / MM, -2), xytext=(pm.x / MM, -R * 0.55),
                     fontsize=5.5, ha="center", color=TINTA, arrowprops=dict(arrowstyle="-", lw=0.4, color=TINTA2),
@@ -198,7 +207,8 @@ def _vista_lateral(ax, cfg: ConfigOpt, det: Detalle, est: Estado | None, cot: _C
         xcg, xcp = est.x_CG / MM, est.x_CP / MM
         ax.plot(xcg, 0, "o", ms=6, mfc="white", mec=TINTA, mew=1.0, zorder=7)
         ax.plot(xcg, 0, marker=(2, 0, 45), ms=6, color=TINTA, mew=0.8, zorder=7)
-        ax.text(xcg, -3, f"CG {xcg:.1f}", ha="center", va="top", fontsize=FUENTE, zorder=7,
+        amarre = " = amarre (herraje)" if any(pm.en_cg for pm in cfg.puntuales) else ""
+        ax.text(xcg + 3, -3, f"CG {xcg:.1f}{amarre}", ha="left", va="top", fontsize=FUENTE, zorder=7,
                 bbox=dict(fc="white", ec="none", pad=0.3))
         ax.plot(xcp, 0, "D", ms=5, mfc=NARANJA, mec=TINTA, mew=0.6, zorder=7)
         ax.text(xcp, -3, f"CP {xcp:.1f}", ha="center", va="top", fontsize=FUENTE, zorder=7,
@@ -321,7 +331,8 @@ def _filas_cajetin(cfg: ConfigOpt, fila: pd.Series, det: Detalle, est: Estado | 
         ("Masa total" + sufijo, f"{m_tot:.1f} g"),
         ("  casco / aletas", f"{cu.m_casco / G:.1f} g / {(g.masa / G if g is not None else math.nan):.1f} g"),
         ("  plomo delantero / trasero", f"{m_del:.1f} g / {m_tras:.1f} g"),
-        ("  electrónica / herraje", f"{me:.1f} g / {m_punt:.1f} g"),
+        ("  electrónica / herraje" + (" (en el CG)" if any(pm.en_cg for pm in cfg.puntuales) else ""),
+         f"{me:.1f} g / {m_punt:.1f} g"),
         ("D aparente · altura aparente", (f"{2 * max(cu.perfil.R, g.r_tip) / MM:.1f} mm · {caja.alto / MM:.1f} mm "
                                           f"(caja mín. {cu.perfil.L / MM:.0f} × {caja.ancho / MM:.1f} × {caja.alto / MM:.1f} mm)")
          if caja is not None else "—"),

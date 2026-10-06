@@ -99,7 +99,9 @@ ranking.csv ──fila──► specs_de_fila ──► (CuerpoSpec, AletaSpec)
    - la electrónica empieza en $x_e = \max(x_{b0}+\ell+h_e,\ x_a)$, con $h_e$ = `electronica.holgura_mm`
      (2 mm), y mide $L_e$ = 20 mm;
    - el tapón trasero ocupa $[x_{r0},\ x_{r0}+\ell_2]$, con $x_{r0} = x_e + L_e + h_e$;
-   - los dos tapones llenan la cavidad completa ($-r_i$ a $+r_i$) en su tramo.
+   - los dos tapones llenan la cavidad completa ($-r_i$ a $+r_i$) en su tramo;
+   - el herraje de remolque (`masas_puntuales`, `x_mm: cg`) va en el CG: suma masa pero no mueve el
+     CG, y se dibuja (y se carga en OpenRocket) en el $x_{CG}$ final.
 5. **Estado dibujado** (`planos.estado`):
    - **factible**: $\ell$ y $\ell_2$ del llenado; CG con los dos tapones;
    - **infactible**: $\ell$ = el que minimiza $x_{CG}$ en `numerico.n_barrido_ell` (600) puntos de
@@ -161,8 +163,9 @@ Se dibuja en este orden de capas (`zorder`):
 | 3 | Perfil interior | $\pm r_i(x)$, `#5f5e58`, 0.3 |
 | 3 | Uniones (fin de nariz, inicio de transición, inicio de tubo) | segmento vertical de $-r_e$ a $+r_e$, `#5f5e58` 0.4, trazo `(0, (4, 2))` |
 | 3 | Eje | de $x = -6$ a $L+6$ en y = 0, `#5f5e58` 0.4, trazo `(0, (10, 2, 2, 2))` |
-| 6 | Herraje (cada `masas_puntuales`) | cuadrado negro de 4 × 4 mm centrado en $(x, 0)$; nombre con guion bajo → espacio, 5.5 pt, línea guía hasta $y = -0.55R$ |
-| 7 | CG | círculo blanco (ms 6, borde 1.0) con una cruz a 45° encima; texto "CG xxx.x" 3 mm debajo |
+| 6 | Herraje de remolque (`x_mm: cg`) | **en el CG**: línea de amarre vertical `#1f1f1e` 0.8 de $(x_{CG}, 0)$ a $(x_{CG}, r_e(x_{CG}) + 3)$ y rectángulo negro de 5 × 3.5 mm desde $(x_{CG} - 2.5,\ r_e - 0.5)$ sobre la piel superior |
+| 6 | Otras masas puntuales de $x$ fijo | cuadrado negro de 4 × 4 mm centrado en $(x, 0)$; nombre con guion bajo → espacio, 5.5 pt, línea guía hasta $y = -0.55R$ |
+| 7 | CG | círculo blanco (ms 6, borde 1.0) con una cruz a 45° encima; texto "CG xxx.x = amarre (herraje)" alineado a la izquierda en $(x_{CG}+3, -3)$ |
 | 7 | CP | rombo `#eb6834` (ms 5); texto "CP xxx.x" 3 mm debajo |
 
 Colores (definidos en `exportar.py`): tinta `#1f1f1e`, tinta secundaria `#5f5e58`, rejilla
@@ -274,7 +277,7 @@ gris hasta x = 0.32 y el valor desde 0.33:
 | Masa total | `.1f` g (con "(en su SM máximo)" si es infactible) | estado |
 | casco / aletas | `.1f` g / `.1f` g | `Cuerpo.m_casco`, `GeomAleta.masa` |
 | plomo delantero / trasero | `.1f` g / `.1f` g | $\rho_{Pb}\forall$ de cada tapón |
-| electrónica / herraje | `.1f` g / `.1f` g | configuración |
+| electrónica / herraje (en el CG) | `.1f` g / `.1f` g | configuración |
 | D aparente · altura aparente | "120.0 mm · 100.0 mm (caja mín. 400 × 100.0 × 100.0 mm)": $D_{ap}$, $H_{ap}$ y la caja $L$ × ancho × $H_{ap}$ | §7 |
 | x_CG / x_CP (desde la punta) | `.1f` / `.1f` mm | estado |
 | SM · C_Nα | `.3f` cal · `.3f` | estado y `CN_alpha_total` de la fila |

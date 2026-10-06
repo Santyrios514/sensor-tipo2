@@ -1,11 +1,12 @@
 """Llenado de lastre: restricciones del criterio de dbf-sensor sobre candidatos reales."""
 
+import copy
 import math
 
 import pytest
 
 from sensor_tipo2.aletas import construir
-from sensor_tipo2.config import AletaSpec, CuerpoSpec, cargar
+from sensor_tipo2.config import AletaSpec, ConfigError, CuerpoSpec, cargar
 from sensor_tipo2.geometria import construir_cuerpo
 from sensor_tipo2.lastre import llenar
 from sensor_tipo2.sustituto import cp_sustituto
@@ -92,6 +93,7 @@ def test_T2_llenado_identico_a_la_version_anterior():
     ref = pd.read_csv(Path(__file__).parent / "datos" / "llenado_v1.csv", keep_default_na=True)
     raw = raw_libre()
     raw["masa"]["m_max_g"] = 10150  # la masa de la configuración v1 con la que se generaron
+    raw["masas_puntuales"] = [{"nombre": "herraje_remolque", "masa_g": 15, "x_mm": 40}]  # como en v1
     raw["restricciones"]["cola_base_roma"]["infactible"] = False
     cfg = cargar(raw)
     assert cfg.electronica.r_min is None
@@ -141,3 +143,40 @@ def test_T5_electronica_que_no_cabe(raw):
     from sensor_tipo2.barrido import evaluar_cuerpo
     f = evaluar_cuerpo(cfg, cu.spec, [ALETA])[0]
     assert not f["factible"] and f["motivos"] == "electronica_no_cabe"
+
+
+# --------------------------------------------------------------------------- herraje de remolque en el CG
+
+
+def test_herraje_en_el_CG(raw):
+    """El herraje (x_mm: cg) va en el CG del sensor: suma masa pero no mueve el CG, y en las masas que
+    se cargan en OpenRocket queda exactamente en el x_CG final (el amarre)."""
+    import numpy as np
+    from sensor_tipo2.exportar import detalle, masas_del_llenado
+    from .conftest import FACTIBLE
+    assert raw["masas_puntuales"][0]["x_mm"] == "cg"
+    cfg = cargar(raw)
+    sin = copy.deepcopy(raw)
+    sin["masas_puntuales"] = []
+    cfg_sin = cargar(sin)
+    c, a = CuerpoSpec(*FACTIBLE[0]), AletaSpec(*FACTIBLE[1])
+    d, d_sin = detalle(cfg, c, a), detalle(cfg_sin, c, a)
+    m, m_sin = d.llenado.modelo, d_sin.llenado.modelo
+    ells = np.linspace(0.0, d.cu.lim.ell_geo, 7)
+    assert np.allclose(m.x_CG(ells), m_sin.x_CG(ells), rtol=0, atol=1e-12)
+    assert np.allclose(m.m(ells) - m_sin.m(ells), 0.015)
+    assert np.allclose(m.x_CG_con_trasero(ells[-1], 0.02), m_sin.x_CG_con_trasero(ells[-1], 0.02), rtol=0, atol=1e-12)
+    # en la lista de masas para OpenRocket el herraje está en el CG final, y el CG del conjunto cierra
+    f = d.llenado.fila
+    masas = {n: (mm, x) for n, mm, x in masas_del_llenado(cfg, d)}
+    assert masas["herraje_remolque"][1] == pytest.approx(f["x_CG_mm"] * 1e-3, abs=1e-12)
+    M = d.cu.M_casco + d.g.masa * d.g.x_cg + sum(mm * x for mm, x in masas.values())
+    mt = d.cu.m_casco + d.g.masa + sum(mm for mm, _ in masas.values())
+    assert mt * 1e3 == pytest.approx(f["m_total_g"], rel=1e-9)
+    assert M / mt * 1e3 == pytest.approx(f["x_CG_mm"], abs=1e-6)
+
+
+def test_masa_puntual_x_invalida(raw):
+    raw["masas_puntuales"] = [{"nombre": "x", "masa_g": 10, "x_mm": "centro"}]
+    with pytest.raises(ConfigError, match="masas_puntuales"):
+        cargar(raw)

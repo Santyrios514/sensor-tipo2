@@ -175,7 +175,11 @@ class Electronica:
 class MasaPuntual:
     nombre: str
     m: float
-    x: float
+    x: float | None  # None = en el CG del sensor (x_mm: cg), como el herraje de remolque
+
+    @property
+    def en_cg(self) -> bool:
+        return self.x is None
 
 
 @dataclass(frozen=True)
@@ -470,8 +474,17 @@ def cargar(ruta: str | Path | dict, raiz: Path | None = None) -> ConfigOpt:
         errores.append("electronica.r_min_mm debe ser > 0 o null")
     if not electronica.Le > 0 or electronica.me < 0:
         errores.append("electronica: longitud_mm debe ser > 0 y masa_g ≥ 0")
-    puntuales = tuple(MasaPuntual(m.get("nombre", f"p{i}"), float(m["masa_g"]) * G, float(m["x_mm"]) * MM)
-                      for i, m in enumerate(raw.get("masas_puntuales") or []))
+    puntuales = []
+    for i, mp in enumerate(raw.get("masas_puntuales") or []):
+        x = mp.get("x_mm")
+        if isinstance(x, str) and x.strip().lower() == "cg":
+            x = None
+        elif not isinstance(x, (int, float)):
+            errores.append(f"masas_puntuales[{i}].x_mm = {x!r}: se espera un número (mm) o 'cg'")
+            continue
+        puntuales.append(MasaPuntual(mp.get("nombre", f"p{i}"), float(mp["masa_g"]) * G,
+                                     None if x is None else float(x) * MM))
+    puntuales = tuple(puntuales)
 
     la = raw["lastre"]
     fmax = la.get("fraccion_max_L")
